@@ -431,6 +431,12 @@ public static class MapBridgeScript
       width: 100%;
       min-width: 10rem;
     }
+    #logic-custom-select-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      pointer-events: none;
+    }
     .logic-custom-select > select {
       position: absolute !important;
       width: 1px !important;
@@ -471,12 +477,13 @@ public static class MapBridgeScript
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 22%, transparent), 0 2px 8px rgba(20, 34, 57, 0.14);
     }
     .logic-custom-select-menu {
-      position: absolute;
-      z-index: 40;
-      top: calc(100% + 0.45rem);
+      position: fixed;
+      z-index: 10001;
+      top: 0;
       left: 0;
-      right: 0;
+      right: auto;
       display: none;
+      pointer-events: auto;
       padding: 0.35rem;
       border: 1px solid var(--logic-border) !important;
       border-radius: 0.9rem;
@@ -484,7 +491,7 @@ public static class MapBridgeScript
       color: var(--logic-ink) !important;
       box-shadow: 0 0.75rem 1.5rem rgba(20, 34, 57, 0.2);
     }
-    .logic-custom-select[data-open='1'] .logic-custom-select-menu {
+    .logic-custom-select-menu[data-open='1'] {
       display: grid;
       gap: 0.18rem;
     }
@@ -561,6 +568,17 @@ public static class MapBridgeScript
       background-color: var(--logic-game-panel-strong) !important;
       color: var(--logic-game-ink) !important;
       border: 1px solid var(--logic-border) !important;
+    }
+    html[data-logic-arrows-dark-ui='1'] .ui-menu-button .menu-icon-line {
+      background-color: #f3f6ff !important;
+    }
+    html[data-logic-arrows-theme='light'] .ui-menu-button .menu-icon-line {
+      background-color: #172033 !important;
+    }
+    @media (prefers-color-scheme: light) {
+      html:not([data-logic-arrows-theme='dark']) .ui-menu-button .menu-icon-line {
+        background-color: #172033 !important;
+      }
     }
     html[data-logic-arrows-dark-ui='1'] .ui-controls-hint,
     html[data-logic-arrows-dark-ui='1'] .ui-fps-display,
@@ -856,6 +874,14 @@ public static class MapBridgeScript
   }
 
   function upgradeSettingsDropdowns() {
+    if (!document.body) return;
+    let layer = document.getElementById('logic-custom-select-layer');
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.id = 'logic-custom-select-layer';
+      document.body.append(layer);
+    }
+
     document.querySelectorAll('.settings-table select').forEach((select) => {
       if (select.dataset.logicCustomDropdown === '1') return;
       select.dataset.logicCustomDropdown = '1';
@@ -871,21 +897,49 @@ public static class MapBridgeScript
       button.setAttribute('aria-label', select.getAttribute('aria-label') || 'Выбор значения');
       const menu = document.createElement('div');
       menu.className = 'logic-custom-select-menu';
+      menu.dataset.open = '0';
       menu.setAttribute('role', 'listbox');
+      button.setAttribute('aria-controls', `logic-custom-options-${Math.random().toString(36).slice(2)}`);
+      menu.id = button.getAttribute('aria-controls');
 
       const close = () => {
         shell.dataset.open = '0';
+        menu.dataset.open = '0';
         button.setAttribute('aria-expanded', 'false');
+      };
+      const positionMenu = () => {
+        if (shell.dataset.open !== '1') return;
+        const rect = button.getBoundingClientRect();
+        const viewportPadding = 12;
+        const width = Math.max(rect.width, 180);
+        const availableWidth = Math.max(160, window.innerWidth - viewportPadding * 2);
+        const menuWidth = Math.min(width, availableWidth);
+        let left = Math.min(rect.left, window.innerWidth - menuWidth - viewportPadding);
+        left = Math.max(viewportPadding, left);
+        menu.style.width = `${Math.round(menuWidth)}px`;
+        menu.style.left = `${Math.round(left)}px`;
+        menu.style.maxHeight = `${Math.max(120, window.innerHeight - viewportPadding * 2)}px`;
+        const menuHeight = Math.min(menu.scrollHeight || 180, window.innerHeight - viewportPadding * 2);
+        const belowTop = rect.bottom + 6;
+        const aboveTop = rect.top - menuHeight - 6;
+        const top = belowTop + menuHeight <= window.innerHeight - viewportPadding
+          ? belowTop
+          : Math.max(viewportPadding, aboveTop);
+        menu.style.top = `${Math.round(top)}px`;
       };
       const open = () => {
         document.querySelectorAll('.logic-custom-select[data-open="1"]').forEach((other) => {
           if (other !== shell) {
             other.dataset.open = '0';
+            other.querySelector('.logic-custom-select-menu')?.setAttribute('data-open', '0');
             other.querySelector('.logic-custom-select-button')?.setAttribute('aria-expanded', 'false');
           }
         });
         shell.dataset.open = '1';
+        menu.dataset.open = '1';
         button.setAttribute('aria-expanded', 'true');
+        positionMenu();
+        menu.querySelector(`[data-value="${CSS.escape(select.value)}"]`)?.focus();
       };
       const sync = () => {
         const current = select.options[select.selectedIndex];
@@ -935,18 +989,20 @@ public static class MapBridgeScript
         if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           open();
-          menu.querySelector(`[data-value="${CSS.escape(select.value)}"]`)?.focus();
         } else if (event.key === 'Escape') {
           close();
         }
       });
       select.addEventListener('change', sync);
       document.addEventListener('click', (event) => {
-        if (!shell.contains(event.target)) close();
+        if (!shell.contains(event.target) && !menu.contains(event.target)) close();
       });
+      globalThis.addEventListener?.('resize', positionMenu);
+      globalThis.addEventListener?.('scroll', positionMenu, true);
 
       select.parentElement?.insertBefore(shell, select);
-      shell.append(button, menu, select);
+      shell.append(button, select);
+      layer.append(menu);
       sync();
     });
   }
