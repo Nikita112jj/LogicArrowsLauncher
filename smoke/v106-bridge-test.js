@@ -129,12 +129,16 @@ let clock = 0;
 let tickCount = 0;
 let originalCalls = 0;
 let observedDrawLevel = null;
-const shaderSourceCalls = [];
-class FakeWebGL2RenderingContext {
-  shaderSource(_shader, source) {
-    shaderSourceCalls.push(source);
-  }
-}
+const clearCalls = [];
+const gameRender = {
+  mainRenderTexture: {},
+  gridRenderTexture: {},
+  render: {
+    setRenderTarget(target) { clearCalls.push(['target', target]); },
+    clear(r, g, b, a) { clearCalls.push(['clear', r, g, b, a]); },
+  },
+  clearRenderTextures() { clearCalls.push(['official-clear']); },
+};
 const game = {
   updateSpeedLevel: 5,
   frame: 0,
@@ -170,8 +174,7 @@ const sandbox = {
   clearInterval: () => {},
   atob: (value) => Buffer.from(value, 'base64').toString('binary'),
   gameVersion: '1_4',
-  WebGL2RenderingContext: FakeWebGL2RenderingContext,
-  game: { navigation: { gamePage: { game: { ...game, gameMap: {} } } } },
+  game: { navigation: { gamePage: { game: { ...game, gameMap: {}, render: gameRender } } } },
   chrome: { webview: { postMessage: () => {} } },
 };
 sandbox.globalThis = sandbox;
@@ -209,17 +212,19 @@ themeSelect.listeners.change();
 assert.equal(storage.get('logic-arrows-theme'), 'dark', 'theme preference persisted');
 assert.equal(html.attributes['data-logic-arrows-theme'], 'dark', 'dark theme applied immediately');
 
-const fakeContext = new sandbox.WebGL2RenderingContext();
-const gridGeneratorShader = `#version 300 es\nuniform float u_show_chunk_borders;\nout vec4 out_color;\nvoid main() { vec2 grid = fract(vec2(1.0)); float color = 1.0; out_color = vec4(vec3(color), 1.0); }`;
-const gridTileShader = `#version 300 es\nuniform sampler2D u_texture;\nvoid main() { vec4 color = texture(u_texture, vec2(0.0)); float scale = 1.0; color.rgb = mix(vec3(0.98), color.rgb, scale); }`;
-const arrowShader = `#version 300 es\nuniform float u_alpha;\nvoid main() { vec4 color = vec4(1.0); out_color = color; }`;
-fakeContext.shaderSource({}, gridGeneratorShader);
-fakeContext.shaderSource({}, gridTileShader);
-fakeContext.shaderSource({}, arrowShader);
-assert.equal(shaderSourceCalls.length, 3, 'WebGL shaderSource remains callable');
-assert.match(shaderSourceCalls[0], /darkField/, 'dark theme patches grid generator only');
-assert.match(shaderSourceCalls[1], /0\.055, 0\.075, 0\.11/, 'dark theme patches grid tile fallback');
-assert.equal(shaderSourceCalls[2], arrowShader, 'arrow signal shader remains untouched');
+patchedGame.render.clearRenderTextures();
+assert.deepEqual(clearCalls, [
+  ['target', gameRender.mainRenderTexture],
+  ['clear', 0.055, 0.075, 0.11, 1],
+  ['target', gameRender.gridRenderTexture],
+  ['clear', 1, 1, 1, 1],
+  ['target', null],
+], 'dark theme clears only the arrow background dark and keeps grid layer white');
+
+clearCalls.length = 0;
+storage.set('logic-arrows-theme', 'light');
+patchedGame.render.clearRenderTextures();
+assert.deepEqual(clearCalls, [['official-clear']], 'light theme keeps official clear path');
 
 console.log(`adaptive_ticks=${highLevelTicks}`);
 console.log('low_tps_official_path=True');
