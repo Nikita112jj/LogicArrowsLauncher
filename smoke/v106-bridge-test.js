@@ -191,8 +191,16 @@ const source = fs.readFileSync('src/MapBridgeScript.cs', 'utf8');
 const launcherSource = fs.readFileSync('src/LauncherForm.cs', 'utf8');
 assert.match(launcherSource, /Activated \+= LauncherForm_Activated;/, 'window activation restores game focus');
 assert.match(launcherSource, /globalThis\.focus\?\.\(\); document\.querySelector\('canvas'\)/, 'page focus ping restores canvas input');
+assert.match(launcherSource, /protected override void WndProc\(ref Message m\)/, 'host handles native focus messages');
+assert.match(launcherSource, /WM_ACTIVATEAPP[\s\S]*RequestNativeFocusRecovery/, 'app activation queues native focus recovery');
+assert.match(launcherSource, /WM_SETFOCUS[\s\S]*RequestNativeFocusRecovery/, 'set-focus queues native focus recovery');
+assert.match(launcherSource, /!appIsActive[\s\S]*nativeFocusRecoveryQueued/, 'native recovery never steals focus while app is inactive');
+assert.match(launcherSource, /!isGameFullscreen \|\| !appIsActive \|\| requestId != focusRequestId/, 'delayed retries cancel after deactivation');
 const match = source.match(/public const string Source = """\n([\s\S]*?)\n""";/);
 assert.ok(match, 'bridge raw string found');
+assert.match(match[1], /installGameFocusRecovery/, 'page focus recovery is installed');
+assert.match(match[1], /visibilitychange/, 'page recovers input after visibility returns');
+assert.match(match[1], /__logicArrowsLauncherRecoverInput/, 'host can trigger page input recovery');
 vm.runInNewContext(match[1], sandbox, { filename: 'MapBridgeScript.Source' });
 
 patchedGame.updateFrame();

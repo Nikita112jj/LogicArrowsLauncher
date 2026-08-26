@@ -10,6 +10,9 @@ namespace LogicArrowsLauncher;
 
 public sealed class LauncherForm : Form
 {
+    private const int WM_ACTIVATE = 0x0006;
+    private const int WM_SETFOCUS = 0x0007;
+    private const int WM_ACTIVATEAPP = 0x001C;
     private const string RepositoryUrl = "https://github.com/Nikita112jj/LogicArrowsLauncher";
     private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.0.7";
 
@@ -47,6 +50,9 @@ public sealed class LauncherForm : Form
     private bool exportInProgress;
     private bool lobbyImportInProgress;
     private int focusRequestId;
+    private bool nativeFocusRecoveryQueued;
+    private bool appIsActive = true;
+    private long lastNativeFocusRecoveryTick = -1;
 
     public LauncherForm()
     {
@@ -696,8 +702,51 @@ public sealed class LauncherForm : Form
         QueueGameViewFocus();
     }
 
+    private void RequestNativeFocusRecovery()
+    {
+        if (!isGameFullscreen || !appIsActive || IsDisposed || !IsHandleCreated || nativeFocusRecoveryQueued) return;
+        var now = Environment.TickCount64;
+        if (lastNativeFocusRecoveryTick >= 0 && now - lastNativeFocusRecoveryTick < 250) return;
+        lastNativeFocusRecoveryTick = now;
+        nativeFocusRecoveryQueued = true;
+        try
+        {
+            BeginInvoke(new Action(() =>
+            {
+                nativeFocusRecoveryQueued = false;
+                if (!IsDisposed && isGameFullscreen && appIsActive) QueueGameViewFocus();
+            }));
+        }
+        catch (InvalidOperationException)
+        {
+            nativeFocusRecoveryQueued = false;
+        }
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        base.WndProc(ref m);
+        if (!isGameFullscreen || IsDisposed || !IsHandleCreated) return;
+
+        if (m.Msg == WM_ACTIVATEAPP)
+        {
+            appIsActive = m.WParam != IntPtr.Zero;
+            if (!appIsActive) focusRequestId++;
+            else RequestNativeFocusRecovery();
+        }
+        else if (m.Msg == WM_ACTIVATE && m.WParam != IntPtr.Zero)
+        {
+            RequestNativeFocusRecovery();
+        }
+        else if (m.Msg == WM_SETFOCUS)
+        {
+            RequestNativeFocusRecovery();
+        }
+    }
+
     private void LauncherForm_Activated(object? sender, EventArgs e)
     {
+        appIsActive = true;
         if (!isGameFullscreen || IsDisposed || !IsHandleCreated) return;
         try
         {
@@ -717,6 +766,7 @@ public sealed class LauncherForm : Form
 
     private void LauncherForm_Deactivate(object? sender, EventArgs e)
     {
+        appIsActive = false;
         if (isGameFullscreen)
         {
             // Cancel delayed attempts while another window owns keyboard focus.
@@ -735,7 +785,7 @@ public sealed class LauncherForm : Form
                 try { await Task.Delay(80); }
                 catch (ObjectDisposedException) { return; }
             }
-            if (IsDisposed || !isGameFullscreen || requestId != focusRequestId) return;
+            if (IsDisposed || !isGameFullscreen || !appIsActive || requestId != focusRequestId) return;
             webView.Visible = true;
             webView.Focus();
             try
@@ -757,7 +807,7 @@ public sealed class LauncherForm : Form
                 if (webView.CoreWebView2 is not null)
                 {
                     await webView.CoreWebView2.ExecuteScriptAsync(
-                        "globalThis.focus?.(); document.querySelector('canvas')?.focus?.();");
+                        "globalThis.__logicArrowsLauncherRecoverInput?.(); globalThis.focus?.(); document.querySelector('canvas')?.focus?.({preventScroll:true});");
                 }
             }
             catch (COMException)
