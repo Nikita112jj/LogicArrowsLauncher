@@ -434,8 +434,12 @@ public static class MapBridgeScript
     #logic-custom-select-layer {
       position: fixed;
       inset: 0;
-      z-index: 10000;
+      z-index: 2147483000;
+      isolation: isolate;
       pointer-events: none;
+    }
+    html.logic-dropdown-open .logic-custom-select:not([data-open='1']) {
+      visibility: hidden !important;
     }
     .logic-custom-select > select {
       position: absolute !important;
@@ -478,7 +482,7 @@ public static class MapBridgeScript
     }
     .logic-custom-select-menu {
       position: fixed;
-      z-index: 10001;
+      z-index: 2147483647;
       top: 0;
       left: 0;
       right: auto;
@@ -487,8 +491,9 @@ public static class MapBridgeScript
       padding: 0.35rem;
       border: 1px solid var(--logic-border) !important;
       border-radius: 0.9rem;
-      background: var(--logic-surface-strong) !important;
-      color: var(--logic-ink) !important;
+      background: #ffffff !important;
+      color: #202838 !important;
+      opacity: 1 !important;
       box-shadow: 0 0.75rem 1.5rem rgba(20, 34, 57, 0.2);
     }
     .logic-custom-select-menu[data-open='1'] {
@@ -517,8 +522,22 @@ public static class MapBridgeScript
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='m3.2 5.2 3.8 3.8 3.8-3.8' fill='none' stroke='%23e8edf7' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     }
     html[data-logic-arrows-theme='dark'] .logic-custom-select-menu {
+      background: #1d2636 !important;
+      color: #edf2ff !important;
       border-color: #53617a !important;
       box-shadow: 0 0.9rem 2rem rgba(0, 0, 0, 0.32);
+    }
+    html[data-logic-arrows-theme='dark'] .logic-custom-select-option {
+      color: #edf2ff !important;
+    }
+    @media (prefers-color-scheme: dark) {
+      html:not([data-logic-arrows-theme='light']) .logic-custom-select-menu {
+        background: #1d2636 !important;
+        color: #edf2ff !important;
+      }
+      html:not([data-logic-arrows-theme='light']) .logic-custom-select-option {
+        color: #edf2ff !important;
+      }
     }
     html[data-logic-arrows-theme='dark'] .logic-custom-select-option:hover,
     html[data-logic-arrows-theme='dark'] .logic-custom-select-option:focus-visible,
@@ -906,6 +925,7 @@ public static class MapBridgeScript
         shell.dataset.open = '0';
         menu.dataset.open = '0';
         button.setAttribute('aria-expanded', 'false');
+        document.documentElement.classList?.remove('logic-dropdown-open');
       };
       const positionMenu = () => {
         if (shell.dataset.open !== '1') return;
@@ -938,6 +958,7 @@ public static class MapBridgeScript
         shell.dataset.open = '1';
         menu.dataset.open = '1';
         button.setAttribute('aria-expanded', 'true');
+        document.documentElement.classList?.add('logic-dropdown-open');
         positionMenu();
         menu.querySelector(`[data-value="${CSS.escape(select.value)}"]`)?.focus();
       };
