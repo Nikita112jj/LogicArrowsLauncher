@@ -289,6 +289,16 @@ public static class MapBridgeScript
     #logic-arrows-launcher-theme-row td {
       background: var(--logic-surface-strong);
     }
+    #logic-arrows-launcher-export-map {
+      background-color: var(--logic-surface-strong);
+      color: var(--logic-ink) !important;
+      border: 1px solid var(--logic-border);
+      box-shadow: 0 0.25rem 0.7rem rgba(0, 0, 0, 0.16);
+    }
+    #logic-arrows-launcher-export-map:hover {
+      background-color: var(--accent-color);
+      color: #fff !important;
+    }
     @media (prefers-color-scheme: dark) {
       html:not([data-logic-arrows-theme='light']) .ui-menu-panel {
         background-color: var(--logic-surface);
@@ -362,7 +372,7 @@ public static class MapBridgeScript
       if (!source.includes('color.rgb = mix(vec3(0.98), color.rgb, scale);')) return response;
       const patched = source.replace(
         'color.rgb = mix(vec3(0.98), color.rgb, scale);',
-        'float cell = step(0.9, color.r);\\n  vec3 darkGrid = mix(vec3(0.42), vec3(0.58), cell);\\n  color.rgb = mix(color.rgb, darkGrid, scale);'
+        'float cell = step(0.9, color.r);\n  vec3 darkGrid = mix(vec3(0.42), vec3(0.58), cell);\n  color.rgb = mix(color.rgb, darkGrid, scale);'
       );
       return new Response(patched, {
         status: response.status,
@@ -624,7 +634,7 @@ public static class MapBridgeScript
     button.style.justifyContent = 'center';
     button.style.fontFamily = 'var(--font)';
     button.style.fontSize = '3.5vmin';
-    button.style.color = '#333';
+    button.style.color = 'var(--logic-ink)';
     button.addEventListener('click', () => {
       if (button.dataset.busy === '1') return;
       button.dataset.busy = '1';
