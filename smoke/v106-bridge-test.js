@@ -205,6 +205,8 @@ assert.match(match[1], /new KeyboardEvent\('keyup'/, 'page can clear official ke
 assert.match(match[1], /code: 'ControlLeft'/, 'keyboard reset uses official clear branch');
 assert.match(match[1], /addEventListener\?\.\('blur', clearOfficialKeyboardState/, 'blur clears stale keys');
 assert.match(match[1], /addEventListener\?\.\('pagehide', clearOfficialKeyboardState/, 'pagehide clears stale keys');
+assert.match(match[1], /canvas:focus[\s\S]*outline: none !important/, 'canvas keeps keyboard focus without focus outline');
+assert.match(match[1], /canvas:focus[\s\S]*box-shadow: none !important/, 'canvas keeps keyboard focus without focus glow');
 vm.runInNewContext(match[1], sandbox, { filename: 'MapBridgeScript.Source' });
 
 patchedGame.updateFrame();

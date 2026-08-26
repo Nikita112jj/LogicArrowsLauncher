@@ -171,6 +171,16 @@ public static class MapBridgeScript
       color: var(--logic-ink);
       transition: background-color 180ms ease, color 180ms ease;
     }
+    .ui-game-view canvas:focus,
+    .ui-game-view canvas:focus-visible,
+    .ui-game-view-canvas:focus,
+    .ui-game-view-canvas:focus-visible,
+    canvas.cnv:focus,
+    canvas.cnv:focus-visible {
+      outline: none !important;
+      box-shadow: none !important;
+      -webkit-tap-highlight-color: transparent !important;
+    }
     #logic-arrows-launcher-settings-heading {
       margin: clamp(24px, 5vh, 56px) 0 0 clamp(24px, 10vw, 140px);
       font-family: var(--font);
