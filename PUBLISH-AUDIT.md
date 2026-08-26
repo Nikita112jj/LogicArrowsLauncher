@@ -13,9 +13,9 @@
 
 `LogicArrowsLauncher.exe` is a Windows x64 self-contained single-file publish for v1.0.7 dark UI polish, toolbar tooltip correction and WebView2 bind-focus recovery.
 
-SHA-256: `665d496e869b963fc51b7edc988b8ba586606e79a595611af5d86bd817997a82`
+SHA-256: `b68ae44fba4452a2df2c34079aa942fedf7945160af191eddeb775eaacec3284`
 
-Size: 72,063,458 bytes.
+Size: 72,063,459 bytes.
 
 The Release EXE is generated from the reviewed source. Generated binaries, research captures, local logs and caches are excluded from the source commit and uploaded only as release assets where intended.
 
