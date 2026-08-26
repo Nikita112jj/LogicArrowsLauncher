@@ -218,6 +218,9 @@ themeSelect.value = 'dark';
 themeSelect.listeners.change();
 assert.equal(storage.get('logic-arrows-theme'), 'dark', 'theme preference persisted');
 assert.equal(html.attributes['data-logic-arrows-theme'], 'dark', 'dark theme applied immediately');
+assert.equal(html.attributes['data-logic-arrows-dark-ui'], '1', 'dark UI scope applied only for dark theme');
+assert.match(match[1], /html\[data-logic-arrows-dark-ui='1'\] \.ui-toolbar/, 'game overlay overrides are scoped to dark UI');
+assert.doesNotMatch(match[1], /\n    \.ui-toolbar-item,\n/, 'no global toolbar item override remains');
 
 patchedGame.render.clearRenderTextures();
 assert.deepEqual(clearCalls, [

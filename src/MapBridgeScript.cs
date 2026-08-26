@@ -523,46 +523,59 @@ public static class MapBridgeScript
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='m3.2 5.2 3.8 3.8 3.8-3.8' fill='none' stroke='%23e8edf7' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
     }
-    .ui-inventory,
-    .ui-inventory-line,
-    .ui-toolbar,
-    .ui-toolbar-item,
-    .ui-speed-controller,
-    .ui-menu-button,
-    .ui-undo-button,
-    .ui-menu-panel,
-    .ui-ok-cancel-panel,
-    #menu-page-content {
+    html[data-logic-arrows-dark-ui='1'] .ui-inventory,
+    html[data-logic-arrows-dark-ui='1'] .ui-inventory-items,
+    html[data-logic-arrows-dark-ui='1'] .ui-toolbar-controller,
+    html[data-logic-arrows-dark-ui='1'] .ui-toolbar-container,
+    html[data-logic-arrows-dark-ui='1'] .ui-menu-button-container,
+    html[data-logic-arrows-dark-ui='1'] .ui-undo-button-container {
+      background: transparent !important;
+      border: 0 !important;
+      color: inherit !important;
+    }
+    html[data-logic-arrows-dark-ui='1'] .ui-inventory-line,
+    html[data-logic-arrows-dark-ui='1'] .ui-toolbar,
+    html[data-logic-arrows-dark-ui='1'] .ui-speed-controller,
+    html[data-logic-arrows-dark-ui='1'] .ui-menu-panel,
+    html[data-logic-arrows-dark-ui='1'] .ui-ok-cancel-panel {
       background-color: var(--logic-game-panel) !important;
       color: var(--logic-game-ink) !important;
       border-color: var(--logic-border) !important;
     }
-    .ui-inventory-line,
-    .ui-toolbar {
+    html[data-logic-arrows-dark-ui='1'] .ui-inventory-line,
+    html[data-logic-arrows-dark-ui='1'] .ui-toolbar,
+    html[data-logic-arrows-dark-ui='1'] .ui-speed-controller {
       border: 1px solid var(--logic-border);
     }
-    .inventory-item,
-    .ui-toolbar-item,
-    .ui-menu-button,
-    .ui-undo-button {
+    html[data-logic-arrows-dark-ui='1'] .inventory-item,
+    html[data-logic-arrows-dark-ui='1'] .ui-toolbar-item {
       background-color: var(--logic-game-panel-strong) !important;
+      color: var(--dark-blue) !important;
       border: 1px solid var(--logic-border);
     }
-    .ui-toolbar-item > span,
-    .ui-controls-hint,
-    .ui-fps-display,
-    .ui-menu-panel,
-    .ui-ok-cancel-panel,
-    .ui-menu-saving,
-    .ui-menu-back-text,
-    .ui-menu-map-name-input {
+    html[data-logic-arrows-dark-ui='1'] .ui-toolbar-item > span {
+      color: var(--dark-blue) !important;
+    }
+    html[data-logic-arrows-dark-ui='1'] .ui-menu-button,
+    html[data-logic-arrows-dark-ui='1'] .ui-undo-button {
+      background-color: var(--logic-game-panel-strong) !important;
+      color: var(--logic-game-ink) !important;
+      border: 1px solid var(--logic-border) !important;
+    }
+    html[data-logic-arrows-dark-ui='1'] .ui-controls-hint,
+    html[data-logic-arrows-dark-ui='1'] .ui-fps-display,
+    html[data-logic-arrows-dark-ui='1'] .ui-menu-panel,
+    html[data-logic-arrows-dark-ui='1'] .ui-ok-cancel-panel,
+    html[data-logic-arrows-dark-ui='1'] .ui-menu-saving,
+    html[data-logic-arrows-dark-ui='1'] .ui-menu-back-text,
+    html[data-logic-arrows-dark-ui='1'] .ui-menu-map-name-input {
       color: var(--logic-game-ink) !important;
     }
-    .ui-controls-hint {
+    html[data-logic-arrows-dark-ui='1'] .ui-controls-hint {
       color: var(--logic-game-ink) !important;
       text-shadow: none;
     }
-    .ui-controls-hint p {
+    html[data-logic-arrows-dark-ui='1'] .ui-controls-hint p {
       display: block;
       margin-block-start: 0.5em;
       margin-block-end: 0;
@@ -573,46 +586,66 @@ public static class MapBridgeScript
       color: inherit !important;
       text-shadow: none;
     }
-    .ui-controls-hint .inline-key,
-    .ui-controls-hint .inline-key-blue,
-    .ui-controls-hint .inline-icon-blue {
+    html[data-logic-arrows-dark-ui='1'] .ui-controls-hint .inline-key,
+    html[data-logic-arrows-dark-ui='1'] .ui-controls-hint .inline-key-blue,
+    html[data-logic-arrows-dark-ui='1'] .ui-controls-hint .inline-icon-blue {
       background-color: #1d2a3d !important;
       color: #f3f6ff !important;
       border-color: transparent !important;
     }
-    .ui-fps-display {
+    html[data-logic-arrows-dark-ui='1'] .ui-fps-display {
       padding: 0;
       border: 0;
       background: transparent !important;
       color: var(--logic-game-ink) !important;
       text-shadow: none;
     }
-    .ui-menu-button,
-    .ui-undo-button {
+    html[data-logic-arrows-dark-ui='1'] .ui-menu-button,
+    html[data-logic-arrows-dark-ui='1'] .ui-undo-button {
       box-shadow: 0 0.25rem 0.7rem rgba(0, 0, 0, 0.18);
     }
-    .ui-menu-button:hover,
-    .ui-undo-button:hover {
+    html[data-logic-arrows-dark-ui='1'] .ui-menu-button:hover,
+    html[data-logic-arrows-dark-ui='1'] .ui-undo-button:hover {
       background-color: var(--logic-game-panel-strong) !important;
       border-color: var(--accent-color) !important;
     }
-    .ui-speed-controller {
+    html[data-logic-arrows-theme='light'] .ui-menu-button,
+    html[data-logic-arrows-theme='light'] .ui-undo-button {
+      background-color: #e6ebf4 !important;
+      color: #243f78 !important;
+      border-color: #aebbd0 !important;
+    }
+    html[data-logic-arrows-theme='light'] .ui-toolbar-item > span {
+      color: #243f78 !important;
+    }
+    @media (prefers-color-scheme: light) {
+      html:not([data-logic-arrows-theme='dark']) .ui-menu-button,
+      html:not([data-logic-arrows-theme='dark']) .ui-undo-button {
+        background-color: #e6ebf4 !important;
+        color: #243f78 !important;
+        border-color: #aebbd0 !important;
+      }
+      html:not([data-logic-arrows-theme='dark']) .ui-toolbar-item > span {
+        color: #243f78 !important;
+      }
+    }
+    html[data-logic-arrows-dark-ui='1'] .ui-speed-controller {
       border: 1px solid var(--logic-border);
     }
-    .ui-range-tick {
+    html[data-logic-arrows-dark-ui='1'] .ui-range-tick {
       background-color: var(--logic-game-panel-strong) !important;
     }
-    .ui-text-message.active {
+    html[data-logic-arrows-dark-ui='1'] .ui-text-message.active {
       color: #b9caff !important;
     }
-    .ui-text-message.error.active {
+    html[data-logic-arrows-dark-ui='1'] .ui-text-message.error.active {
       color: #ff9ca8 !important;
     }
-    .ui-menu-map-name-input {
+    html[data-logic-arrows-dark-ui='1'] .ui-menu-map-name-input {
       border-bottom-color: var(--logic-game-muted) !important;
     }
-    .ui-menu-panel,
-    .ui-ok-cancel-panel {
+    html[data-logic-arrows-dark-ui='1'] .ui-menu-panel,
+    html[data-logic-arrows-dark-ui='1'] .ui-ok-cancel-panel {
       border: 1px solid var(--logic-border) !important;
       box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.25);
     }
@@ -652,6 +685,8 @@ public static class MapBridgeScript
     const theme = value === 'dark' || value === 'light' || value === 'system' ? value : 'system';
     if (theme === 'system') document.documentElement.removeAttribute('data-logic-arrows-theme');
     else document.documentElement.setAttribute('data-logic-arrows-theme', theme);
+    if (isDarkTheme()) document.documentElement.setAttribute('data-logic-arrows-dark-ui', '1');
+    else document.documentElement.removeAttribute('data-logic-arrows-dark-ui');
   }
 
   function isDarkTheme() {
