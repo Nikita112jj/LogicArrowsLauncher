@@ -1,0 +1,23 @@
+# .NET build output
+**/bin/
+**/obj/
+
+# Local launcher cache, WebView2 profile and generated smoke data
+updates/
+webview2-profile/
+/smoke/smoke-cache/
+
+# Generated artifacts are attached to Releases, not committed
+/artifacts/
+/research/
+
+# Browser-exported duplicate image
+assets/*.webp
+
+# Local logs and editor files
+*.log
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
