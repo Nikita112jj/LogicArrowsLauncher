@@ -252,7 +252,7 @@ assert.match(shaderSourceCalls[2], /vec4\(1\.0, 1\.0, 1\.0, 0\.0\)/, 'light them
 storage.set('logic-arrows-theme', 'dark');
 const gridGeneratorShader = `uniform float u_show_chunk_borders; out vec4 out_color; void main() { vec2 grid = fract(vec2(1.0)); float color = 1.0; out_color = vec4(vec3(color), 1.0); }`;
 fakeContext.shaderSource({}, gridGeneratorShader);
-assert.match(shaderSourceCalls[3], /vec3\(1\.0\), gridLine/, 'dark grid uses white lines with transparent empty cells');
+assert.match(shaderSourceCalls[3], /vec3\(0\.44\), gridLine/, 'dark grid uses gray lines with transparent empty cells');
 
 console.log(`adaptive_ticks=${highLevelTicks}`);
 console.log('low_tps_official_path=True');

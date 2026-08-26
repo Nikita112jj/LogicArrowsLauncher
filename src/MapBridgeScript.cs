@@ -527,7 +527,7 @@ public static class MapBridgeScript
     return source.replace(
       'out_color = vec4(vec3(color), 1.0);',
       `float gridLine = step(min(grid.x, grid.y), 0.0);
-  out_color = vec4(vec3(1.0), gridLine);`,
+  out_color = vec4(vec3(0.44), gridLine);`,
     );
   }
 

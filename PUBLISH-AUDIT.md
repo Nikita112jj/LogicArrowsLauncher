@@ -13,9 +13,9 @@
 
 `LogicArrowsLauncher.exe` is a Windows x64 self-contained single-file publish for v1.0.7 dark UI polish.
 
-SHA-256: `c71ae76e1c8e1ed5e708f52c2dfd08172e3bb036fdfc1907bc45fd13b906b483`
+SHA-256: `faba677583759dbdea12c15e6c313bcbbf59390e617ec24f26c9cd261692e009`
 
-Size: 72,054,132 bytes.
+Size: 72,054,692 bytes.
 
 The Release EXE is generated from the reviewed source. Generated binaries, research captures, local logs and caches are excluded from the source commit and uploaded only as release assets where intended.
 
