@@ -10,5 +10,6 @@
     <Compile Include="../src/CacheModels.cs" Link="CacheModels.cs" />
     <Compile Include="../src/AssetSynchronizer.cs" Link="AssetSynchronizer.cs" />
     <Compile Include="../src/UpdateStore.cs" Link="UpdateStore.cs" />
+    <Compile Include="../src/MapFileService.cs" Link="MapFileService.cs" />
   </ItemGroup>
 </Project>

@@ -2,6 +2,8 @@ using LogicArrowsLauncher;
 
 var root = Path.Combine(Directory.GetCurrentDirectory(), "smoke-updates");
 if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+var mapPath = Path.Combine(Directory.GetCurrentDirectory(), "smoke-test.map");
+if (File.Exists(mapPath)) File.Delete(mapPath);
 var store = new UpdateStore(Path.Combine(root, "updates"));
 var progress = new Progress<SyncProgress>(_ => { });
 
@@ -33,4 +35,29 @@ if (secondSummary.Downloaded != 0 ||
 if (versionCount != 1) return 8;
 if (!second.TryGetAsset("/bundle.js?v=1_4", out var bundle, out _)) return 6;
 if (bundle.Length == 0) return 7;
+
+var envelope = new MapFileEnvelope
+{
+    MapId = "local-smoke",
+    MapName = "Smoke test",
+    Data = Convert.ToBase64String(new byte[] { 0, 1, 2, 3 }),
+};
+MapFileService.Write(mapPath, envelope);
+var roundTrip = MapFileService.Read(mapPath);
+Console.WriteLine($"map_round_trip={roundTrip.Data == envelope.Data}");
+if (roundTrip.Data != envelope.Data || roundTrip.SiteVersion != ResourceCatalog.CurrentVersion) return 9;
+File.WriteAllText(mapPath, "{\"format\":\"wrong\",\"formatVersion\":1,\"siteVersion\":\"1_4\",\"data\":\"AAECAw==\"}");
+try
+{
+    _ = MapFileService.Read(mapPath);
+    return 10;
+}
+catch (InvalidDataException)
+{
+    Console.WriteLine("map_invalid_rejected=True");
+}
+finally
+{
+    if (File.Exists(mapPath)) File.Delete(mapPath);
+}
 return 0;

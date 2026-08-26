@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/Nikita112jj/LogicArrowsLauncher/releases/latest"><img src="https://img.shields.io/badge/Скачать-актуальный%20релиз-2f8f4e?style=for-the-badge" alt="Скачать последний релиз"></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Версия-1.0.1%20patch-7d5cff?style=for-the-badge" alt="Версия 1.0.1 patch"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Версия-1.0.5%20map%20patch-7d5cff?style=for-the-badge" alt="Версия 1.0.5 map patch"></a>
   <img src="https://img.shields.io/badge/Windows-x64-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows x64">
   <img src="https://img.shields.io/badge/.NET-8-512BD4?style=for-the-badge&logo=dotnet&logoColor=white" alt=".NET 8">
 </p>
@@ -24,11 +24,11 @@
 
 | Платформа | Скачать / открыть | Что внутри |
 |---|---|---|
-| **Windows x64** | [Скачать LogicArrowsLauncher.exe](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/download/v1.0.1/LogicArrowsLauncher.exe) | Готовый self-contained EXE |
+| **Windows x64** | [Скачать LogicArrowsLauncher.exe](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/download/v1.0.5/LogicArrowsLauncher.exe) | Готовый self-contained EXE |
 | **Linux** | [Открыть Linux source](linux/README.md) | Исходники и план GTK/Avalonia/Qt WebEngine-порта |
 | **macOS** | [Открыть macOS source](mac/README.md) | Исходники и план Avalonia/WKWebView-порта |
 
-Также можно открыть [полный релиз v1.0.1 patch](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.1), где лежат EXE, ICO и официальная PNG-иконка игры.
+Также можно открыть [полный релиз v1.0.5 patch](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.5), где лежат EXE, ICO и официальная PNG-иконка игры.
 
 ## Что умеет лаунчер
 
@@ -42,10 +42,15 @@
 - Не перезагружает уже открытую страницу при повторном входе, чтобы игровые бинды не терялись.
 - Поддерживает fullscreen через WebView2: **F11** показывает или скрывает стандартную Windows-рамку окна, не уменьшая игру.
 - Использует официальную favicon Logic Arrows в EXE, заголовке окна и на панели задач.
+- Импортирует собственные `.map`-файлы из лобби через стандартный выбор файла Windows.
+- Экспортирует открытую карту кнопкой **«Экспорт .map»** в штатных настройках карты.
+- Проверяет формат, версию `1_4`, размер и Base64 до передачи карты в официальный runtime игры.
 
-## v1.0.1 patch
+## v1.0.5 map patch
 
-В этой версии **Esc** снова остаётся клавишей меню самой игры. Возврат из игры в лаунчер перенесён на **F1**. При повторном нажатии «Играть» текущая страница не перезагружается, а после смены рамки окна фокус возвращается в WebView2. Это уменьшает вероятность того, что бинды перестанут работать.
+В этой версии добавлен собственный формат `.map`. В лобби лаунчера кнопка **«Импорт .map»** открывает Проводник Windows и подготавливает выбранную карту к запуску. В настройках карты Logic Arrows появляется кнопка **«Экспорт .map»**, которая сохраняет текущую карту.
+
+**Esc** остаётся клавишей меню игры, **F1** возвращает в лаунчер, а **F11** переключает стандартную Windows-рамку. Повторный вход не перезагружает готовую страницу, поэтому игровые бинды не должны теряться.
 
 Полный список изменений: [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -62,6 +67,7 @@ EXE собран как **self-contained single-file win-x64**. Отдельны
 | Действие | Результат |
 |---|---|
 | **Играть** | Открывает подготовленную Logic Arrows в fullscreen |
+| **Импорт .map** | Выбирает карту в лобби и импортирует её после запуска |
 | **Esc** | Передаётся Logic Arrows и открывает её меню |
 | **F1** | Выходит из игры в экран лаунчера |
 | **F11** | Показывает или скрывает стандартную верхнюю Windows-панель с кнопками свернуть, развернуть и закрыть, не уменьшая игру |
@@ -76,6 +82,8 @@ EXE собран как **self-contained single-file win-x64**. Отдельны
 | [`src/AssetSynchronizer.cs`](src/AssetSynchronizer.cs) | Быстрый version-check и conditional GET |
 | [`src/UpdateStore.cs`](src/UpdateStore.cs) | Версионируемое локальное хранилище snapshot |
 | [`src/LocalResourceInterceptor.cs`](src/LocalResourceInterceptor.cs) | Подача сохранённых статических ресурсов в WebView2 |
+| [`src/MapFileService.cs`](src/MapFileService.cs) | Валидация и запись собственного `.map`-конверта |
+| [`src/MapBridgeScript.cs`](src/MapBridgeScript.cs) | Bridge официальных `game.save`/`game.load` и кнопка экспорта в настройках |
 | [`src/ResourceCatalog.cs`](src/ResourceCatalog.cs) | Allowlist официальных ресурсов Logic Arrows |
 | [`smoke/Program.cs`](smoke/Program.cs) | Автоматическая проверка первого и повторного запуска |
 | [`windows/`](windows/README.md) | Windows-сборка и запуск |
@@ -126,7 +134,7 @@ Logic Arrows, её название, код игры и графические �
 - сохраняется `1` активная версия snapshot;
 - EXE публикуется как один self-contained файл.
 
-Подробности находятся в [`docs/QA.md`](docs/QA.md).
+Подробности находятся в [`docs/QA.md`](docs/QA.md). Формат `.map` описан в [`CHANGELOG.md`](CHANGELOG.md) и реализован в [`src/MapFileService.cs`](src/MapFileService.cs).
 
 ## Официальные ссылки
 

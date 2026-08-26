@@ -2,6 +2,26 @@
 
 Все заметные изменения Logic Arrows Launcher собраны в этом файле.
 
+## [1.0.5] — map patch
+
+### Добавлено
+
+- Собственный формат `Logic Arrows .map`: JSON-конверт с официальными сериализованными данными карты в Base64.
+- Кнопка **«Импорт .map»** в лобби лаунчера: файл выбирается через стандартный Проводник Windows, проверяется и импортируется после открытия игры.
+- Кнопка **«Экспорт .map»** в штатных настройках карты Logic Arrows.
+- Проверка формата, версии игры, размера и Base64 до передачи данных в WebView2.
+- В репозитории добавлены `MapFileService.cs` и `MapBridgeScript.cs`.
+
+### Управление
+
+| Клавиша / действие | Результат |
+|---|---|
+| **Импорт .map** | Выбрать карту в лобби и подготовить её к открытию |
+| **Экспорт .map** | Сохранить открытую карту из настроек карты |
+| **Esc** | Открыть меню Logic Arrows |
+| **F1** | Вернуться в лаунчер |
+| **F11** | Показать или скрыть стандартную Windows-рамку |
+
 ## [1.0.1] — patch
 
 ### Исправлено
@@ -28,5 +48,6 @@
 - Официальная favicon Logic Arrows в EXE, README и Releases.
 - F11/Esc fullscreen-логика предыдущего выпуска.
 
+[1.0.5]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.5
 [1.0.1]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.0
