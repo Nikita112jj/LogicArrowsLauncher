@@ -2,6 +2,7 @@ using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 using System.Drawing;
 using System.Reflection;
+using System.Runtime.InteropServices;
 
 namespace LogicArrowsLauncher;
 
@@ -31,6 +32,8 @@ public sealed class LauncherForm : Form
     private FormBorderStyle launcherBorderStyle;
     private FormWindowState launcherWindowState;
     private Rectangle launcherBounds;
+    private TaskCompletionSource<bool>? gamePageReadySignal;
+    private bool gamePageReady;
 
     public LauncherForm()
     {
@@ -220,8 +223,13 @@ public sealed class LauncherForm : Form
             else
             {
                 interceptor?.SetSynchronizer(synchronizer);
-                webView.CoreWebView2.Reload();
+                if (!gamePageReady)
+                {
+                    gamePageReadySignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                    webView.CoreWebView2.Reload();
+                }
             }
+            await WaitForGamePageReadyAsync();
             EnterGameFullscreen();
         }
         catch (Microsoft.Web.WebView2.Core.WebView2RuntimeNotFoundException)
@@ -320,7 +328,7 @@ public sealed class LauncherForm : Form
                 ? $"Быстрая проверка: {summary.Checked} ключевых файлов, скачано 0"
                 : $"{summary.Downloaded} файлов готовы к запуску";
         headerTitle.Text = "Logic Arrows Launcher";
-        headerDetail.Text = customMessage ?? "Код готов. Нажми «Играть» — игра откроется во весь экран; F11 или Esc — назад";
+        headerDetail.Text = customMessage ?? "Код готов. Нажми «Играть» — вход в игру; Esc — меню игры; F1 — в лаунчер";
         playButton.Visible = true;
         playButton.Enabled = synchronizer?.HasRequiredCache() == true;
         CenterLoadingCard();
@@ -354,6 +362,8 @@ public sealed class LauncherForm : Form
             userDataFolder: userDataDirectory,
             options: null);
         await webView.EnsureCoreWebView2Async(environment);
+        gamePageReady = false;
+        gamePageReadySignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
         webView.CoreWebView2.Settings.AreDevToolsEnabled = true;
@@ -371,6 +381,16 @@ public sealed class LauncherForm : Form
         interceptor = new LocalResourceInterceptor(synchronizer!);
         interceptor.Attach(webView.CoreWebView2);
         webView.CoreWebView2.Navigate(ResourceCatalog.Origin + "/");
+        await WaitForGamePageReadyAsync();
+    }
+
+    private async Task WaitForGamePageReadyAsync()
+    {
+        if (gamePageReady) return;
+        var signal = gamePageReadySignal
+            ?? throw new InvalidOperationException("Страница Logic Arrows ещё не начала загрузку.");
+        await signal.Task.WaitAsync(TimeSpan.FromSeconds(45));
+        gamePageReady = true;
     }
 
     private void EnterGameFullscreen()
@@ -386,7 +406,7 @@ public sealed class LauncherForm : Form
         webView.Visible = true;
         FormBorderStyle = FormBorderStyle.None;
         WindowState = FormWindowState.Maximized;
-        webView.Focus();
+        QueueGameViewFocus();
     }
 
     private void ExitGameFullscreen()
@@ -424,7 +444,31 @@ public sealed class LauncherForm : Form
         {
             ResumeLayout(performLayout: true);
         }
-        webView.Focus();
+        QueueGameViewFocus();
+    }
+
+    private void QueueGameViewFocus()
+    {
+        if (IsDisposed || !IsHandleCreated) return;
+        BeginInvoke(new Action(() =>
+        {
+            if (IsDisposed || !isGameFullscreen) return;
+            webView.Visible = true;
+            webView.Focus();
+            try
+            {
+                webViewController?.MoveFocus(CoreWebView2MoveFocusReason.Programmatic);
+            }
+            catch (COMException)
+            {
+                // WebView2 can reject focus while its child window is recreating.
+            }
+            catch (InvalidOperationException)
+            {
+                // The controller may be between navigation and HWND creation.
+            }
+            webView.Focus();
+        }));
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -434,7 +478,7 @@ public sealed class LauncherForm : Form
             ToggleGameFullscreen();
             return true;
         }
-        if (isGameFullscreen && keyData == Keys.Escape)
+        if (isGameFullscreen && keyData == Keys.F1)
         {
             ExitGameFullscreen();
             return true;
@@ -454,7 +498,7 @@ public sealed class LauncherForm : Form
 
         var virtualKey = e.VirtualKey;
         if (virtualKey == (uint)Keys.F11 ||
-            (virtualKey == (uint)Keys.Escape && isGameFullscreen))
+            (virtualKey == (uint)Keys.F1 && isGameFullscreen))
         {
             e.Handled = true;
             if (!IsDisposed && IsHandleCreated)
@@ -465,7 +509,7 @@ public sealed class LauncherForm : Form
                     {
                         ToggleGameFullscreen();
                     }
-                    else if (isGameFullscreen)
+                    else if (virtualKey == (uint)Keys.F1 && isGameFullscreen)
                     {
                         ExitGameFullscreen();
                     }
@@ -498,10 +542,19 @@ public sealed class LauncherForm : Form
     {
         if (!e.IsSuccess)
         {
+            gamePageReady = false;
+            gamePageReadySignal?.TrySetException(
+                new InvalidOperationException($"Ошибка WebView2: {e.WebErrorStatus}"));
             headerDetail.Text = $"Ошибка WebView2: {e.WebErrorStatus}";
             return;
         }
-        if (!isGameFullscreen)
+        gamePageReady = true;
+        gamePageReadySignal?.TrySetResult(true);
+        if (isGameFullscreen)
+        {
+            QueueGameViewFocus();
+        }
+        else
         {
             headerDetail.Text = "Игра готова. Нажми «Играть», чтобы открыть её во весь экран";
         }

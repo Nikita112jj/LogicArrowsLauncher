@@ -6,14 +6,15 @@
 | Microsoft.Web.WebView2 | NuGet package `Microsoft.Web.WebView2` 1.0.4129.50 | Registry package metadata; verify upstream terms before redistribution | Used by `src/LogicArrowsLauncher.csproj` | Pinned version | Explicit package version, no floating range | PASS |
 | Logic Arrows runtime resources | `https://logic-arrows.io/`, fetched at launcher runtime | Belong to Logic Arrows правообладатели | Resource allowlist in `src/ResourceCatalog.cs`; downloaded game source is not committed | Origin restricted to `https://logic-arrows.io` | No cookies or tokens copied | PASS |
 | Logic Arrows favicon | `https://logic-arrows.io/res/favicon512.png` | Belongs to Logic Arrows правообладатели | `assets/logic-arrows-favicon.png`, generated `assets/logic-arrows.ico` | Original 512×512 PNG and seven-size ICO reviewed | Static asset included for app branding | PASS |
+| Platform source layout | This repository: `windows/`, `linux/`, `mac/` | Launcher source status documented per platform | Platform READMEs reviewed; no fake binaries | Windows build is available; Linux/macOS are source/porting notes | No unpinned platform packages added | PASS |
 
 ## Release artifact
 
-`LogicArrowsLauncher.exe` is a Windows x64 self-contained single-file publish.
+`LogicArrowsLauncher.exe` is a Windows x64 self-contained single-file publish for v1.0.1 patch.
 
-SHA-256: `bcc3cc2328d5cec2362cffda7f7a346af7e04c677963089f96c06cf72dfb05e3`
+SHA-256: `632f33ff61fe77c6d24aff53b9fc76ebdfa26fd740b09ec3d46d7e2cc0561b94`
 
-Size: 72,020,449 bytes.
+Size: 72,021,214 bytes.
 
 The Release EXE is generated from the reviewed source. Generated binaries, research captures, local logs and caches are excluded from the source commit and uploaded only as release assets where intended.
 

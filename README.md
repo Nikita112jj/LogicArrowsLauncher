@@ -5,17 +5,30 @@
 </p>
 
 <p align="center">
-  Автономный Windows x64 лаунчер для <a href="https://logic-arrows.io/">Logic Arrows</a>.
+  Автономный лаунчер для <a href="https://logic-arrows.io/">Logic Arrows</a>.
   Он загружает официальный код игры, хранит snapshot локально и запускает игру в WebView2.
 </p>
 
 <p align="center">
   <a href="https://github.com/Nikita112jj/LogicArrowsLauncher/releases/latest"><img src="https://img.shields.io/badge/Скачать-актуальный%20релиз-2f8f4e?style=for-the-badge" alt="Скачать последний релиз"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Версия-1.0.1%20patch-7d5cff?style=for-the-badge" alt="Версия 1.0.1 patch"></a>
   <img src="https://img.shields.io/badge/Windows-x64-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows x64">
   <img src="https://img.shields.io/badge/.NET-8-512BD4?style=for-the-badge&logo=dotnet&logoColor=white" alt=".NET 8">
 </p>
 
-> Один EXE. Без отдельной установки .NET. Первый запуск скачивает ресурсы игры, следующие запуски быстро проверяют версию и используют сохранённую копию.
+> Один автономный EXE для Windows. Первый запуск скачивает ресурсы игры, следующие запуски быстро проверяют версию и используют сохранённую копию.
+
+## Скачать под свою систему
+
+Выбери свою платформу. На Windows кнопка сразу начинает скачивание готового установочного файла из GitHub Release. Для Linux и macOS пока доступны исходники и честная инструкция по порту: текущая GUI-часть использует WinForms и Microsoft WebView2.
+
+| Платформа | Скачать / открыть | Что внутри |
+|---|---|---|
+| **Windows x64** | [Скачать LogicArrowsLauncher.exe](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/download/v1.0.1/LogicArrowsLauncher.exe) | Готовый self-contained EXE |
+| **Linux** | [Открыть Linux source](linux/README.md) | Исходники и план GTK/Avalonia/Qt WebEngine-порта |
+| **macOS** | [Открыть macOS source](mac/README.md) | Исходники и план Avalonia/WKWebView-порта |
+
+Также можно открыть [полный релиз v1.0.1 patch](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.1), где лежат EXE, ICO и официальная PNG-иконка игры.
 
 ## Что умеет лаунчер
 
@@ -26,28 +39,32 @@
 - Оставляет игру на исходном origin `https://logic-arrows.io`, поэтому официальные API, IndexedDB и локальные карты работают в контексте игры.
 - Не читает cookies обычного Edge и не копирует токены.
 - Показывает кнопку **«Играть»** после подготовки и не запускает игру автоматически.
-- Поддерживает fullscreen через WebView2: **F11** показывает или скрывает стандартную Windows-рамку окна, **Esc** выходит из fullscreen.
+- Не перезагружает уже открытую страницу при повторном входе, чтобы игровые бинды не терялись.
+- Поддерживает fullscreen через WebView2: **F11** показывает или скрывает стандартную Windows-рамку окна, не уменьшая игру.
 - Использует официальную favicon Logic Arrows в EXE, заголовке окна и на панели задач.
 
-## Скачать
+## v1.0.1 patch
 
-Открой [последний GitHub Release](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/latest) и скачай `LogicArrowsLauncher.exe`.
+В этой версии **Esc** снова остаётся клавишей меню самой игры. Возврат из игры в лаунчер перенесён на **F1**. При повторном нажатии «Играть» текущая страница не перезагружается, а после смены рамки окна фокус возвращается в WebView2. Это уменьшает вероятность того, что бинды перестанут работать.
 
-EXE собран как **self-contained single-file win-x64**. Отдельный .NET Desktop Runtime не нужен. Для отображения игры требуется установленный **Microsoft Edge WebView2 Runtime**. На Windows 10/11 он обычно уже есть вместе с Edge.
+Полный список изменений: [`CHANGELOG.md`](CHANGELOG.md).
 
-### Первый запуск
+## Первый запуск и обновления
 
 Первый запуск может занять время: лаунчер скачивает полный набор из 141 ресурса и сохраняет его в профиле пользователя. Это ожидаемое поведение.
 
 После этого при неизменившейся версии появится сообщение **«Версия не изменилась»**, а лаунчер проверит только пять sentinel-файлов и сразу использует локальный snapshot.
+
+EXE собран как **self-contained single-file win-x64**. Отдельный .NET Desktop Runtime не нужен. Для отображения игры требуется **Microsoft Edge WebView2 Runtime**. На Windows 10/11 он обычно уже есть вместе с Edge.
 
 ## Управление
 
 | Действие | Результат |
 |---|---|
 | **Играть** | Открывает подготовленную Logic Arrows в fullscreen |
+| **Esc** | Передаётся Logic Arrows и открывает её меню |
+| **F1** | Выходит из игры в экран лаунчера |
 | **F11** | Показывает или скрывает стандартную верхнюю Windows-панель с кнопками свернуть, развернуть и закрыть, не уменьшая игру |
-| **Esc** | Выходит из fullscreen и возвращает обычное окно лаунчера |
 
 ## Исходный код
 
@@ -55,15 +72,18 @@ EXE собран как **self-contained single-file win-x64**. Отдельны
 
 | Путь | Назначение |
 |---|---|
-| [`src/LauncherForm.cs`](src/LauncherForm.cs) | Окно лаунчера, подготовка игры и fullscreen |
+| [`src/LauncherForm.cs`](src/LauncherForm.cs) | Окно лаунчера, клавиши F1/Esc/F11, подготовка игры и fullscreen |
 | [`src/AssetSynchronizer.cs`](src/AssetSynchronizer.cs) | Быстрый version-check и conditional GET |
 | [`src/UpdateStore.cs`](src/UpdateStore.cs) | Версионируемое локальное хранилище snapshot |
 | [`src/LocalResourceInterceptor.cs`](src/LocalResourceInterceptor.cs) | Подача сохранённых статических ресурсов в WebView2 |
 | [`src/ResourceCatalog.cs`](src/ResourceCatalog.cs) | Allowlist официальных ресурсов Logic Arrows |
 | [`smoke/Program.cs`](smoke/Program.cs) | Автоматическая проверка первого и повторного запуска |
+| [`windows/`](windows/README.md) | Windows-сборка и запуск |
+| [`linux/`](linux/README.md) | Ограничения и план Linux-порта |
+| [`mac/`](mac/README.md) | Ограничения и план macOS-порта |
 | [`assets/logic-arrows.ico`](assets/logic-arrows.ico) | Многоразмерная Windows-иконка приложения |
 
-## Собрать самостоятельно
+## Собрать Windows-версию самостоятельно
 
 Нужен .NET 8 SDK. В корне проекта выполни:
 
@@ -92,7 +112,7 @@ dotnet run --project smoke/LogicArrowsLauncher.Smoke.csproj -c Release
 
 ## Иконка и права
 
-В проекте используется официальная favicon Logic Arrows: [`favicon512.png`](https://logic-arrows.io/res/favicon512.png). В README она показана выше, а в Releases доступны PNG и ICO-версии.
+В проекте используется официальная favicon Logic Arrows: [`favicon512.png`](https://logic-arrows.io/res/favicon512.png). В README она показана выше, а в Release доступны PNG и ICO-версии.
 
 Logic Arrows, её название, код игры и графические материалы принадлежат соответствующим правообладателям. Этот репозиторий содержит лаунчер и не заявляет права на игру. Лаунчер намеренно не встраивает изменяемый код Logic Arrows навсегда и получает ресурсы с официального сайта.
 
