@@ -258,7 +258,7 @@ assert.deepEqual(clearCalls, [
   ['target', gameRender.gridRenderTexture],
   ['clear', 0, 0, 0, 0],
   ['target', null],
-], 'dark theme clears only the arrow background dark and keeps grid layer white');
+], 'dark theme clears only the arrow background dark and keeps grid layer transparent');
 
 clearCalls.length = 0;
 storage.set('logic-arrows-theme', 'light');
@@ -274,6 +274,8 @@ fakeContext.shaderSource({}, chunkArrowShader);
 assert.equal(shaderSourceCalls.length, 2, 'arrow shaders remain callable');
 assert.match(shaderSourceCalls[0], /vec4\(0\.055, 0\.075, 0\.11, 0\.0\)/, 'dark theme replaces transparent selection-cell background');
 assert.match(shaderSourceCalls[1], /vec4\(0\.055, 0\.075, 0\.11, 1\.0\)/, 'dark theme replaces opaque chunk-cell background');
+assert.match(shaderSourceCalls[0], /vec3 base = color\.rgb \* color\.a \+ signal_colors\[u_signal\]\.rgb \* \(1\.0 - color\.a\)/, 'selection shader ignores transparent white RGB');
+assert.match(shaderSourceCalls[1], /vec3 base = color\.rgb \* color\.a \+ signal_colors\[signal_index\]\.rgb \* \(1\.0 - color\.a\)/, 'chunk shader ignores transparent white RGB');
 assert.match(shaderSourceCalls[0], /vec4\(1\.0, 0\.0, 0\.0, 1\.0\)/, 'red signal color remains original');
 assert.match(shaderSourceCalls[0], /vec4\(0\.3, 0\.5, 1\.0, 1\.0\)/, 'blue signal color remains original');
 

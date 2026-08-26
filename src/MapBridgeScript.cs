@@ -894,7 +894,9 @@ public static class MapBridgeScript
 
     return source
       .replace('vec4(1.0, 1.0, 1.0, 0.0)', 'vec4(0.055, 0.075, 0.11, 0.0)')
-      .replace('vec4(1.0, 1.0, 1.0, 1.0)', 'vec4(0.055, 0.075, 0.11, 1.0)');
+      .replace('vec4(1.0, 1.0, 1.0, 1.0)', 'vec4(0.055, 0.075, 0.11, 1.0)')
+      .replace('vec3 base = color.rgb + signal_colors[u_signal].rgb * (1.0 - color.a)', 'vec3 base = color.rgb * color.a + signal_colors[u_signal].rgb * (1.0 - color.a)')
+      .replace('vec3 base = color.rgb + signal_colors[signal_index].rgb * (1.0 - color.a)', 'vec3 base = color.rgb * color.a + signal_colors[signal_index].rgb * (1.0 - color.a)');
   }
 
   function patchDarkGridGeneratorShader(source) {
