@@ -391,7 +391,6 @@ public static class MapBridgeScript
     }
     .ui-toolbar-item > span,
     .ui-controls-hint,
-    .ui-controls-hint p,
     .ui-fps-display,
     .ui-menu-panel,
     .ui-ok-cancel-panel,
@@ -400,18 +399,32 @@ public static class MapBridgeScript
     .ui-menu-map-name-input {
       color: var(--logic-game-ink) !important;
     }
-    .ui-controls-hint p {
-      display: inline-block;
-      padding: 0.35em 0.65em;
-      border: 1px solid var(--logic-border);
-      border-radius: 0.55em;
-      background: var(--logic-game-panel) !important;
+    .ui-controls-hint {
+      color: var(--logic-game-ink) !important;
       text-shadow: none;
     }
+    .ui-controls-hint p {
+      display: block;
+      margin-block-start: 0.5em;
+      margin-block-end: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent !important;
+      color: inherit !important;
+      text-shadow: none;
+    }
+    .ui-controls-hint .inline-key,
+    .ui-controls-hint .inline-key-blue,
+    .ui-controls-hint .inline-icon-blue {
+      background-color: #1d2a3d !important;
+      color: #f3f6ff !important;
+      border-color: transparent !important;
+    }
     .ui-fps-display {
-      padding: 0.35vmin 0.65vmin;
-      border: 1px solid var(--logic-border);
-      background: var(--logic-game-panel) !important;
+      padding: 0;
+      border: 0;
+      background: transparent !important;
       color: var(--logic-game-ink) !important;
       text-shadow: none;
     }
