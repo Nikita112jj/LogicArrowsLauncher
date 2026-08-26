@@ -23,7 +23,6 @@ public static class MapBridgeScript
   const THEME_SELECT_ID = 'logic-arrows-launcher-theme-select';
   const THEME_STORAGE_KEY = 'logic-arrows-theme';
   const PATCHED_GAME_KEY = '__logicArrowsLauncherAdaptiveUpdate';
-  const PATCHED_FETCH_KEY = '__logicArrowsLauncherDarkGridFetch';
   const UPDATE_COUNTS = [1, 1, 1, 5, 20, 100];
   const SKIP_COUNTS = [20, 5, 1, 1, 1, 1];
   let pendingLobbyImport = null;
@@ -120,6 +119,10 @@ public static class MapBridgeScript
       --logic-ink: #202838;
       --logic-muted: #6d7584;
       --logic-border: rgba(32, 40, 56, 0.12);
+      --logic-game-panel: #eef2f8;
+      --logic-game-panel-strong: #ffffff;
+      --logic-game-ink: #202838;
+      --logic-game-muted: #596477;
     }
     html[data-logic-arrows-theme='dark'] {
       --logic-background: #111722;
@@ -128,6 +131,10 @@ public static class MapBridgeScript
       --logic-ink: #edf2ff;
       --logic-muted: #aab4c7;
       --logic-border: rgba(237, 242, 255, 0.16);
+      --logic-game-panel: #182131;
+      --logic-game-panel-strong: #222f45;
+      --logic-game-ink: #f3f6ff;
+      --logic-game-muted: #c0cbe0;
       --blue: #345a9f;
       --dark-blue: #243f78;
       --accent-color: #80a8ff;
@@ -141,6 +148,10 @@ public static class MapBridgeScript
         --logic-ink: #edf2ff;
         --logic-muted: #aab4c7;
         --logic-border: rgba(237, 242, 255, 0.16);
+        --logic-game-panel: #182131;
+        --logic-game-panel-strong: #222f45;
+        --logic-game-ink: #f3f6ff;
+        --logic-game-muted: #c0cbe0;
         --blue: #345a9f;
         --dark-blue: #243f78;
         --accent-color: #80a8ff;
@@ -314,6 +325,126 @@ public static class MapBridgeScript
         border-bottom-color: var(--logic-muted);
       }
     }
+    .settings-table input[type='checkbox'] {
+      appearance: none;
+      -webkit-appearance: none;
+      position: relative;
+      width: 3.1rem;
+      height: 1.7rem;
+      margin: 0;
+      border: 1px solid var(--logic-border);
+      border-radius: 999px;
+      background: var(--logic-game-panel-strong);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.16);
+      cursor: pointer;
+      vertical-align: middle;
+      transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+    }
+    .settings-table input[type='checkbox']::after {
+      content: '';
+      position: absolute;
+      top: 0.18rem;
+      left: 0.18rem;
+      width: 1.2rem;
+      height: 1.2rem;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+      transition: transform 180ms cubic-bezier(0.2, 0, 0, 1);
+    }
+    .settings-table input[type='checkbox']:checked {
+      border-color: var(--accent-color);
+      background: var(--accent-color);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color) 22%, transparent);
+    }
+    .settings-table input[type='checkbox']:checked::after {
+      transform: translateX(1.38rem);
+    }
+    .settings-table input[type='checkbox']:focus-visible {
+      outline: 2px solid var(--accent-color);
+      outline-offset: 3px;
+    }
+    .ui-inventory,
+    .ui-inventory-line,
+    .ui-toolbar,
+    .ui-toolbar-item,
+    .ui-speed-controller,
+    .ui-menu-button,
+    .ui-undo-button,
+    .ui-menu-panel,
+    .ui-ok-cancel-panel,
+    #menu-page-content {
+      background-color: var(--logic-game-panel) !important;
+      color: var(--logic-game-ink) !important;
+      border-color: var(--logic-border) !important;
+    }
+    .ui-inventory-line,
+    .ui-toolbar {
+      border: 1px solid var(--logic-border);
+    }
+    .inventory-item,
+    .ui-toolbar-item,
+    .ui-menu-button,
+    .ui-undo-button {
+      background-color: var(--logic-game-panel-strong) !important;
+      border: 1px solid var(--logic-border);
+    }
+    .ui-toolbar-item > span,
+    .ui-controls-hint,
+    .ui-controls-hint p,
+    .ui-fps-display,
+    .ui-menu-panel,
+    .ui-ok-cancel-panel,
+    .ui-menu-saving,
+    .ui-menu-back-text,
+    .ui-menu-map-name-input {
+      color: var(--logic-game-ink) !important;
+    }
+    .ui-controls-hint p {
+      display: inline-block;
+      padding: 0.35em 0.65em;
+      border: 1px solid var(--logic-border);
+      border-radius: 0.55em;
+      background: var(--logic-game-panel) !important;
+      text-shadow: none;
+    }
+    .ui-fps-display {
+      padding: 0.35vmin 0.65vmin;
+      border: 1px solid var(--logic-border);
+      background: var(--logic-game-panel) !important;
+      color: var(--logic-game-ink) !important;
+      text-shadow: none;
+    }
+    .ui-menu-button,
+    .ui-undo-button {
+      box-shadow: 0 0.25rem 0.7rem rgba(0, 0, 0, 0.18);
+    }
+    .ui-menu-button:hover,
+    .ui-undo-button:hover {
+      background-color: var(--logic-game-panel-strong) !important;
+      border-color: var(--accent-color) !important;
+    }
+    .ui-speed-controller {
+      border: 1px solid var(--logic-border);
+    }
+    .ui-range-tick {
+      background-color: var(--logic-game-panel-strong) !important;
+    }
+    .ui-text-message.active {
+      color: #b9caff !important;
+    }
+    .ui-text-message.error.active {
+      color: #ff9ca8 !important;
+    }
+    .ui-menu-map-name-input {
+      border-bottom-color: var(--logic-game-muted) !important;
+    }
+    .ui-menu-panel,
+    .ui-ok-cancel-panel {
+      border: 1px solid var(--logic-border) !important;
+      box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.25);
+    }
+
     @media (max-width: 700px) {
       #logic-arrows-launcher-settings-heading,
       #logic-arrows-launcher-settings-subtitle,
@@ -349,40 +480,6 @@ public static class MapBridgeScript
     const theme = value === 'dark' || value === 'light' || value === 'system' ? value : 'system';
     if (theme === 'system') document.documentElement.removeAttribute('data-logic-arrows-theme');
     else document.documentElement.setAttribute('data-logic-arrows-theme', theme);
-  }
-
-  function isDarkTheme() {
-    const theme = readTheme();
-    if (theme === 'dark') return true;
-    if (theme === 'light') return false;
-    return Boolean(globalThis.matchMedia?.('(prefers-color-scheme: dark)')?.matches);
-  }
-
-  function installDarkGridFetch() {
-    if (globalThis[PATCHED_FETCH_KEY] || typeof globalThis.fetch !== 'function') return;
-    const originalFetch = globalThis.fetch.bind(globalThis);
-    const wrappedFetch = async (...args) => {
-      const request = args[0];
-      const url = typeof request === 'string' ? request : request?.url || '';
-      const response = await originalFetch(...args);
-      if (!isDarkTheme() || ! /\/res\/shaders\/grid-tile\.frag(?:[?]|$)/.test(String(url)) || !response.ok || typeof globalThis.Response !== 'function') {
-        return response;
-      }
-      const source = await response.text();
-      if (!source.includes('color.rgb = mix(vec3(0.98), color.rgb, scale);')) return response;
-      const patched = source.replace(
-        'color.rgb = mix(vec3(0.98), color.rgb, scale);',
-        'float cell = step(0.9, color.r);\n  vec3 darkGrid = mix(vec3(0.42), vec3(0.58), cell);\n  color.rgb = mix(color.rgb, darkGrid, scale);'
-      );
-      return new Response(patched, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-      });
-    };
-    wrappedFetch[PATCHED_FETCH_KEY] = true;
-    globalThis.fetch = wrappedFetch;
-    globalThis[PATCHED_FETCH_KEY] = true;
   }
 
   function ensureSettingsTheme() {
@@ -654,7 +751,6 @@ public static class MapBridgeScript
   function syncUi() {
     ensureThemeStyle();
     applyTheme();
-    installDarkGridFetch();
     patchGamePerformance();
     ensureSettingsTheme();
     addLobbyImportCard();

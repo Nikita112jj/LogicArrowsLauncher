@@ -37,6 +37,7 @@ public sealed class LauncherForm : Form
     private bool gamePageReady;
     private bool exportInProgress;
     private bool lobbyImportInProgress;
+    private int focusRequestId;
 
     public LauncherForm()
     {
@@ -592,6 +593,7 @@ public sealed class LauncherForm : Form
         if (!isGameFullscreen) return;
         isGameFullscreen = false;
         gameWindowChromeVisible = false;
+        focusRequestId++;
         Text = "Logic Arrows Launcher";
         FormBorderStyle = launcherBorderStyle;
         WindowState = launcherWindowState;
@@ -625,12 +627,18 @@ public sealed class LauncherForm : Form
         QueueGameViewFocus();
     }
 
-    private void QueueGameViewFocus()
+    private async void QueueGameViewFocus()
     {
         if (IsDisposed || !IsHandleCreated) return;
-        BeginInvoke(new Action(() =>
+        var requestId = ++focusRequestId;
+        for (var attempt = 0; attempt < 6; attempt++)
         {
-            if (IsDisposed || !isGameFullscreen) return;
+            if (attempt > 0)
+            {
+                try { await Task.Delay(80); }
+                catch (ObjectDisposedException) { return; }
+            }
+            if (IsDisposed || !isGameFullscreen || requestId != focusRequestId) return;
             webView.Visible = true;
             webView.Focus();
             try
@@ -645,8 +653,9 @@ public sealed class LauncherForm : Form
             {
                 // The controller may be between navigation and HWND creation.
             }
+            webView.Select();
             webView.Focus();
-        }));
+        }
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
