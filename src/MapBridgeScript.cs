@@ -835,6 +835,17 @@ public static class MapBridgeScript
   function installGameFocusRecovery() {
     if (!/^\/map-[^/]+$/.test(globalThis.location.pathname) || globalThis[PATCHED_FOCUS_RECOVERY_KEY]) return;
 
+    const clearOfficialKeyboardState = () => {
+      try {
+        // Official KeyboardHandler clears its private key Sets on Control/Meta keyup.
+        document.dispatchEvent(new KeyboardEvent('keyup', {
+          code: 'ControlLeft',
+          key: 'Control',
+          bubbles: true,
+          cancelable: false,
+        }));
+      } catch { }
+    };
     const focusGameSurface = () => {
       if (document.visibilityState === 'hidden') return;
       const canvas = document.querySelector('canvas');
@@ -852,8 +863,11 @@ public static class MapBridgeScript
     };
 
     document.addEventListener?.('visibilitychange', () => {
-      if (document.visibilityState === 'visible') recover();
+      if (document.visibilityState === 'hidden') clearOfficialKeyboardState();
+      else recover();
     }, { passive: true });
+    globalThis.addEventListener?.('blur', clearOfficialKeyboardState, true);
+    globalThis.addEventListener?.('pagehide', clearOfficialKeyboardState);
     globalThis.addEventListener?.('focus', recover, true);
     globalThis.addEventListener?.('pageshow', recover);
     globalThis[PATCHED_FOCUS_RECOVERY_KEY] = true;

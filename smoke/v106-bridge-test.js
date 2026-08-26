@@ -201,6 +201,10 @@ assert.ok(match, 'bridge raw string found');
 assert.match(match[1], /installGameFocusRecovery/, 'page focus recovery is installed');
 assert.match(match[1], /visibilitychange/, 'page recovers input after visibility returns');
 assert.match(match[1], /__logicArrowsLauncherRecoverInput/, 'host can trigger page input recovery');
+assert.match(match[1], /new KeyboardEvent\('keyup'/, 'page can clear official keyboard state');
+assert.match(match[1], /code: 'ControlLeft'/, 'keyboard reset uses official clear branch');
+assert.match(match[1], /addEventListener\?\.\('blur', clearOfficialKeyboardState/, 'blur clears stale keys');
+assert.match(match[1], /addEventListener\?\.\('pagehide', clearOfficialKeyboardState/, 'pagehide clears stale keys');
 vm.runInNewContext(match[1], sandbox, { filename: 'MapBridgeScript.Source' });
 
 patchedGame.updateFrame();
