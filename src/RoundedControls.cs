@@ -83,6 +83,8 @@ public sealed class RoundedPanel : Panel
 public sealed class RoundedButton : Button
 {
     private int cornerRadius = 12;
+    private bool hovered;
+    private bool pressed;
 
     public int CornerRadius
     {
@@ -99,6 +101,70 @@ public sealed class RoundedButton : Button
     {
         base.OnSizeChanged(e);
         UpdateRegion();
+        Invalidate();
+    }
+
+    protected override void OnMouseEnter(EventArgs e)
+    {
+        hovered = true;
+        base.OnMouseEnter(e);
+        Invalidate();
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        hovered = false;
+        pressed = false;
+        base.OnMouseLeave(e);
+        Invalidate();
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        pressed = true;
+        base.OnMouseDown(e);
+        Invalidate();
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        pressed = false;
+        base.OnMouseUp(e);
+        Invalidate();
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        var bounds = ClientRectangle;
+        using var path = RoundedPanel.CreatePath(bounds, CornerRadius);
+        var fillColor = !Enabled
+            ? Color.FromArgb(60, 67, 84)
+            : pressed
+                ? Color.FromArgb(Math.Max(0, BackColor.R - 18), Math.Max(0, BackColor.G - 18), Math.Max(0, BackColor.B - 18))
+                : hovered
+                    ? ControlPaint.Light(BackColor, 0.12f)
+                    : BackColor;
+        using var fill = new SolidBrush(fillColor);
+        e.Graphics.FillPath(fill, path);
+
+        var content = ClientRectangle;
+        var hasImage = Image is not null;
+        if (hasImage)
+        {
+            var iconBounds = new Rectangle(12, (Height - 18) / 2, 18, 18);
+            e.Graphics.DrawImage(Image!, iconBounds);
+            content.X += 34;
+            content.Width -= 40;
+        }
+
+        TextRenderer.DrawText(
+            e.Graphics,
+            Text,
+            Font,
+            content,
+            Enabled ? ForeColor : Color.FromArgb(145, 153, 171),
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
     }
 
     protected override void OnHandleCreated(EventArgs e)
