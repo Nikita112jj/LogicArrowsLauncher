@@ -130,6 +130,12 @@ let tickCount = 0;
 let originalCalls = 0;
 let observedDrawLevel = null;
 const clearCalls = [];
+const shaderSourceCalls = [];
+class FakeWebGL2RenderingContext {
+  shaderSource(_shader, source) {
+    shaderSourceCalls.push(source);
+  }
+}
 const gameRender = {
   mainRenderTexture: {},
   gridRenderTexture: {},
@@ -174,6 +180,7 @@ const sandbox = {
   clearInterval: () => {},
   atob: (value) => Buffer.from(value, 'base64').toString('binary'),
   gameVersion: '1_4',
+  WebGL2RenderingContext: FakeWebGL2RenderingContext,
   game: { navigation: { gamePage: { game: { ...game, gameMap: {}, render: gameRender } } } },
   chrome: { webview: { postMessage: () => {} } },
 };
@@ -225,6 +232,22 @@ clearCalls.length = 0;
 storage.set('logic-arrows-theme', 'light');
 patchedGame.render.clearRenderTextures();
 assert.deepEqual(clearCalls, [['official-clear']], 'light theme keeps official clear path');
+
+storage.set('logic-arrows-theme', 'dark');
+const fakeContext = new sandbox.WebGL2RenderingContext();
+const selectionArrowShader = `const vec4 signal_colors[] = vec4[] (vec4(1.0, 1.0, 1.0, 0.0), vec4(1.0, 0.0, 0.0, 1.0), vec4(0.3, 0.5, 1.0, 1.0)); vec3 base = color.rgb + signal_colors[u_signal].rgb * (1.0 - color.a);`;
+const chunkArrowShader = `const vec4 signal_colors[] = vec4[] (vec4(1.0, 1.0, 1.0, 1.0), vec4(1.0, 0.0, 0.0, 1.0), vec4(0.3, 0.5, 1.0, 1.0)); vec3 base = color.rgb + signal_colors[signal_index].rgb * (1.0 - color.a);`;
+fakeContext.shaderSource({}, selectionArrowShader);
+fakeContext.shaderSource({}, chunkArrowShader);
+assert.equal(shaderSourceCalls.length, 2, 'arrow shaders remain callable');
+assert.match(shaderSourceCalls[0], /vec4\(0\.055, 0\.075, 0\.11, 0\.0\)/, 'dark theme replaces transparent selection-cell background');
+assert.match(shaderSourceCalls[1], /vec4\(0\.055, 0\.075, 0\.11, 1\.0\)/, 'dark theme replaces opaque chunk-cell background');
+assert.match(shaderSourceCalls[0], /vec4\(1\.0, 0\.0, 0\.0, 1\.0\)/, 'red signal color remains original');
+assert.match(shaderSourceCalls[0], /vec4\(0\.3, 0\.5, 1\.0, 1\.0\)/, 'blue signal color remains original');
+
+storage.set('logic-arrows-theme', 'light');
+fakeContext.shaderSource({}, selectionArrowShader);
+assert.match(shaderSourceCalls[2], /vec4\(1\.0, 1\.0, 1\.0, 0\.0\)/, 'light theme keeps official selection-cell background');
 
 console.log(`adaptive_ticks=${highLevelTicks}`);
 console.log('low_tps_official_path=True');

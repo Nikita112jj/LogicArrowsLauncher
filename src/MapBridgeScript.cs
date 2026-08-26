@@ -24,6 +24,7 @@ public static class MapBridgeScript
   const THEME_STORAGE_KEY = 'logic-arrows-theme';
   const PATCHED_GAME_KEY = '__logicArrowsLauncherAdaptiveUpdate';
   const PATCHED_DARK_RENDER_KEY = '__logicArrowsLauncherDarkRenderClear';
+  const PATCHED_DARK_ARROW_KEY = '__logicArrowsLauncherDarkArrowCell';
   const UPDATE_COUNTS = [1, 1, 1, 5, 20, 100];
   const SKIP_COUNTS = [20, 5, 1, 1, 1, 1];
   let pendingLobbyImport = null;
@@ -503,6 +504,33 @@ public static class MapBridgeScript
     return Boolean(globalThis.matchMedia?.('(prefers-color-scheme: dark)')?.matches);
   }
 
+  function patchDarkArrowCellShader(source) {
+    if (!isDarkTheme() || typeof source !== 'string') return source;
+    if (
+      !source.includes('const vec4 signal_colors[]') ||
+      !source.includes('vec3 base = color.rgb + signal_colors')
+    ) return source;
+
+    return source
+      .replace('vec4(1.0, 1.0, 1.0, 0.0)', 'vec4(0.055, 0.075, 0.11, 0.0)')
+      .replace('vec4(1.0, 1.0, 1.0, 1.0)', 'vec4(0.055, 0.075, 0.11, 1.0)');
+  }
+
+  function installDarkArrowCellShaderHook() {
+    const contexts = [globalThis.WebGL2RenderingContext, globalThis.WebGLRenderingContext];
+    for (const Context of contexts) {
+      const prototype = Context?.prototype;
+      if (!prototype || prototype[PATCHED_DARK_ARROW_KEY] || typeof prototype.shaderSource !== 'function') continue;
+
+      const originalShaderSource = prototype.shaderSource;
+      const wrappedShaderSource = function (shader, source) {
+        return originalShaderSource.call(this, shader, patchDarkArrowCellShader(source));
+      };
+      Object.defineProperty(prototype, PATCHED_DARK_ARROW_KEY, { value: true });
+      prototype.shaderSource = wrappedShaderSource;
+    }
+  }
+
   function patchDarkRenderClear() {
     const gamePage = findGamePage(globalThis.game);
     const game = gamePage?.game;
@@ -802,6 +830,7 @@ public static class MapBridgeScript
   }
 
   function syncUi() {
+    installDarkArrowCellShaderHook();
     patchDarkRenderClear();
     ensureThemeStyle();
     applyTheme();
@@ -823,6 +852,7 @@ public static class MapBridgeScript
     syncUi();
   }
 
+  installDarkArrowCellShaderHook();
   patchDarkRenderClear();
   startObserver();
 })();
