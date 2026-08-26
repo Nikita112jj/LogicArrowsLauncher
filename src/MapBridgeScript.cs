@@ -23,6 +23,7 @@ public static class MapBridgeScript
   const THEME_SELECT_ID = 'logic-arrows-launcher-theme-select';
   const THEME_STORAGE_KEY = 'logic-arrows-theme';
   const PATCHED_GAME_KEY = '__logicArrowsLauncherAdaptiveUpdate';
+  const PATCHED_FETCH_KEY = '__logicArrowsLauncherDarkGridFetch';
   const UPDATE_COUNTS = [1, 1, 1, 5, 20, 100];
   const SKIP_COUNTS = [20, 5, 1, 1, 1, 1];
   let pendingLobbyImport = null;
@@ -37,6 +38,7 @@ public static class MapBridgeScript
     const status = document.getElementById(IMPORT_STATUS_ID);
     if (status && typeof message === 'string') {
       status.textContent = message;
+      status.dataset.error = isError ? '1' : '0';
       status.style.color = isError ? '#a33' : '#777';
     }
   }
@@ -227,13 +229,37 @@ public static class MapBridgeScript
       border: 1px solid rgba(255, 255, 255, 0.12);
       box-shadow: 0 0.35rem 1rem rgba(33, 63, 133, 0.18);
     }
-    html[data-logic-arrows-theme='dark'] .ui-saved-item,
-    html[data-logic-arrows-theme='dark'] .ui-new-item,
+    .ui-saved-item,
+    .ui-new-item {
+      background-color: var(--logic-surface);
+      color: var(--logic-ink);
+      border: 1px solid var(--logic-border);
+      box-shadow: 0 0.45rem 1.2rem rgba(0, 0, 0, 0.14);
+      transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, transform 180ms ease;
+    }
+    .ui-saved-item:hover,
+    .ui-new-item:hover {
+      transform: translateY(-2px);
+    }
+    .ui-saved-item-name,
+    .ui-maps-menu-item-name {
+      color: var(--logic-ink);
+    }
+    .ui-saved-item-tags,
+    #logic-arrows-launcher-import-map-status {
+      color: var(--logic-muted) !important;
+    }
+    #logic-arrows-launcher-import-map-status[data-error='1'] {
+      color: #d96b78 !important;
+    }
+    html[data-logic-arrows-theme='dark'] #logic-arrows-launcher-import-map-status[data-error='1'] {
+      color: #ff9ca8 !important;
+    }
     html[data-logic-arrows-theme='dark'] .ui-menu-panel {
       background-color: var(--logic-surface);
       color: var(--logic-ink);
+      border: 1px solid var(--logic-border);
     }
-    html[data-logic-arrows-theme='dark'] .ui-saved-item-tags,
     html[data-logic-arrows-theme='dark'] .ui-menu-saving,
     html[data-logic-arrows-theme='dark'] .ui-menu-back-text {
       color: var(--logic-muted);
@@ -242,8 +268,41 @@ public static class MapBridgeScript
       color: var(--logic-ink);
       border-bottom-color: var(--logic-muted);
     }
+    .settings-table tr:has(.setting-divider),
+    .settings-table .setting-divider,
+    .settings-table .setting-divider hr {
+      display: none !important;
+    }
+    .settings-table tr:has(.logout-button) td {
+      border-radius: 0.8rem !important;
+      padding: 0.9rem 1rem !important;
+    }
+    .settings-table tr:has(.logout-button) .logout-button {
+      display: inline-flex;
+      align-items: center;
+      min-height: 2.6rem;
+      padding: 0.55rem 1rem;
+      border-radius: 0.7rem !important;
+      overflow: hidden;
+      box-shadow: 0 0.35rem 0.9rem rgba(33, 63, 133, 0.24);
+    }
     #logic-arrows-launcher-theme-row td {
       background: var(--logic-surface-strong);
+    }
+    @media (prefers-color-scheme: dark) {
+      html:not([data-logic-arrows-theme='light']) .ui-menu-panel {
+        background-color: var(--logic-surface);
+        color: var(--logic-ink);
+        border: 1px solid var(--logic-border);
+      }
+      html:not([data-logic-arrows-theme='light']) .ui-menu-saving,
+      html:not([data-logic-arrows-theme='light']) .ui-menu-back-text {
+        color: var(--logic-muted);
+      }
+      html:not([data-logic-arrows-theme='light']) .ui-menu-map-name-input {
+        color: var(--logic-ink);
+        border-bottom-color: var(--logic-muted);
+      }
     }
     @media (max-width: 700px) {
       #logic-arrows-launcher-settings-heading,
@@ -280,6 +339,40 @@ public static class MapBridgeScript
     const theme = value === 'dark' || value === 'light' || value === 'system' ? value : 'system';
     if (theme === 'system') document.documentElement.removeAttribute('data-logic-arrows-theme');
     else document.documentElement.setAttribute('data-logic-arrows-theme', theme);
+  }
+
+  function isDarkTheme() {
+    const theme = readTheme();
+    if (theme === 'dark') return true;
+    if (theme === 'light') return false;
+    return Boolean(globalThis.matchMedia?.('(prefers-color-scheme: dark)')?.matches);
+  }
+
+  function installDarkGridFetch() {
+    if (globalThis[PATCHED_FETCH_KEY] || typeof globalThis.fetch !== 'function') return;
+    const originalFetch = globalThis.fetch.bind(globalThis);
+    const wrappedFetch = async (...args) => {
+      const request = args[0];
+      const url = typeof request === 'string' ? request : request?.url || '';
+      const response = await originalFetch(...args);
+      if (!isDarkTheme() || ! /\/res\/shaders\/grid-tile\.frag(?:[?]|$)/.test(String(url)) || !response.ok || typeof globalThis.Response !== 'function') {
+        return response;
+      }
+      const source = await response.text();
+      if (!source.includes('color.rgb = mix(vec3(0.98), color.rgb, scale);')) return response;
+      const patched = source.replace(
+        'color.rgb = mix(vec3(0.98), color.rgb, scale);',
+        'float cell = step(0.9, color.r);\\n  vec3 darkGrid = mix(vec3(0.42), vec3(0.58), cell);\\n  color.rgb = mix(color.rgb, darkGrid, scale);'
+      );
+      return new Response(patched, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+    };
+    wrappedFetch[PATCHED_FETCH_KEY] = true;
+    globalThis.fetch = wrappedFetch;
+    globalThis[PATCHED_FETCH_KEY] = true;
   }
 
   function ensureSettingsTheme() {
@@ -551,6 +644,7 @@ public static class MapBridgeScript
   function syncUi() {
     ensureThemeStyle();
     applyTheme();
+    installDarkGridFetch();
     patchGamePerformance();
     ensureSettingsTheme();
     addLobbyImportCard();

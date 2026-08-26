@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/Nikita112jj/LogicArrowsLauncher/releases/latest"><img src="https://img.shields.io/badge/Скачать-актуальный%20релиз-2f8f4e?style=for-the-badge" alt="Скачать последний релиз"></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Версия-1.0.6-7d5cff?style=for-the-badge" alt="Версия 1.0.6"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Версия-1.0.7-7d5cff?style=for-the-badge" alt="Версия 1.0.7"></a>
   <img src="https://img.shields.io/badge/Windows-x64-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows x64">
   <img src="https://img.shields.io/badge/.NET-8-512BD4?style=for-the-badge&logo=dotnet&logoColor=white" alt=".NET 8">
 </p>
@@ -24,11 +24,11 @@
 
 | Платформа | Скачать / открыть | Что внутри |
 |---|---|---|
-| **Windows x64** | [Скачать LogicArrowsLauncher.exe](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/download/v1.0.6/LogicArrowsLauncher.exe) | Готовый self-contained EXE |
+| **Windows x64** | [Скачать LogicArrowsLauncher.exe](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/download/v1.0.7/LogicArrowsLauncher.exe) | Готовый self-contained EXE |
 | **Linux** | [Открыть Linux source](linux/README.md) | Исходники и план GTK/Avalonia/Qt WebEngine-порта |
 | **macOS** | [Открыть macOS source](mac/README.md) | Исходники и план Avalonia/WKWebView-порта |
 
-Также можно открыть [полный релиз v1.0.6](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.6), где лежат EXE, ICO и официальная PNG-иконка игры.
+Также можно открыть [полный релиз v1.0.7](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.7), где лежат EXE, ICO и официальная PNG-иконка игры.
 
 ## Что умеет лаунчер
 
@@ -47,6 +47,10 @@
 - При высоком TPS распределяет тики больших механизмов по небольшому бюджету кадра, чтобы не блокировать отрисовку.
 - Добавляет в настройки аккуратный пункт **«Тема: Системная / Тёмная / Светлая»** с применением сразу и сохранением выбора.
 - Проверяет формат, версию `1_4`, размер и Base64 до передачи карты в официальный runtime игры.
+
+## v1.0.7
+
+В v1.0.7 исправлена тёмная тема: карточки карт и карточка **«Импорт .map»** больше не белые, текст стал контрастным, а grid-слой самой игры получает тёмные клетки. В настройках убраны лишние полоски, а блок **«Выйти»** теперь полностью закруглён.
 
 ## v1.0.6
 

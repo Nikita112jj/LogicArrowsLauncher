@@ -2,6 +2,15 @@
 
 Все заметные изменения Logic Arrows Launcher собраны в этом файле.
 
+## [1.0.7] — dark UI polish
+
+### Исправлено
+
+- Карточки карт и **«Импорт .map»** больше не белые в тёмной теме; названия и статусы читаются контрастно.
+- Блок с кнопкой **«Выйти»** в настройках получил скруглённые края по всему периметру.
+- Лишние полоски-разделители в настройках скрыты.
+- В тёмной теме grid-слой игры получает тёмные клетки через точечную замену официального `grid-tile.frag`; стрелки и логика симуляции не подменяются.
+
 ## [1.0.6] — performance and themes
 
 ### Добавлено
@@ -69,6 +78,7 @@
 - Официальная favicon Logic Arrows в EXE, README и Releases.
 - F11/Esc fullscreen-логика предыдущего выпуска.
 
+[1.0.7]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.7
 [1.0.6]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.6
 [1.0.5]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.5
 [1.0.1]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.1
