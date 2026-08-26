@@ -17,6 +17,14 @@ public static class MapBridgeScript
   const ACTIONS_ID = 'logic-arrows-launcher-map-actions';
   const MAX_DATA_LENGTH = 2_000_000;
   const MAX_FILE_LENGTH = 2_100_000;
+  const THEME_STYLE_ID = 'logic-arrows-launcher-theme-style';
+  const THEME_HEADING_ID = 'logic-arrows-launcher-settings-heading';
+  const THEME_ROW_ID = 'logic-arrows-launcher-theme-row';
+  const THEME_SELECT_ID = 'logic-arrows-launcher-theme-select';
+  const THEME_STORAGE_KEY = 'logic-arrows-theme';
+  const PATCHED_GAME_KEY = '__logicArrowsLauncherAdaptiveUpdate';
+  const UPDATE_COUNTS = [1, 1, 1, 5, 20, 100];
+  const SKIP_COUNTS = [20, 5, 1, 1, 1, 1];
   let pendingLobbyImport = null;
 
   function post(message) {
@@ -50,6 +58,277 @@ public static class MapBridgeScript
       throw new Error(`Неподдерживаемая версия Logic Arrows: ${String(globalThis.gameVersion || 'unknown')}`);
     }
     return { namespace, gamePage, game, map };
+  }
+
+  function patchGamePerformance() {
+    const gamePage = findGamePage(globalThis.game);
+    const game = gamePage?.game;
+    if (!game || typeof game.updateFrame !== 'function' || game[PATCHED_GAME_KEY]) return;
+
+    const originalUpdateFrame = game.updateFrame;
+    game.updateFrame = function adaptiveUpdateFrame(callback = () => {}) {
+      const level = Math.max(0, Math.min(UPDATE_COUNTS.length - 1, Number(this.updateSpeedLevel) || 0));
+      if (level < 3 || !this.playing || this.frame % SKIP_COUNTS[level] !== 0) {
+        return originalUpdateFrame.call(this, callback);
+      }
+
+      const targetTicks = UPDATE_COUNTS[level];
+      const budgetMs = level >= 5 ? 8 : level >= 4 ? 9 : 10;
+      const startedAt = globalThis.performance?.now?.() ?? Date.now();
+      let completed = 0;
+      while (completed < targetTicks) {
+        this.updateTick(callback);
+        this.updatesPerSecond++;
+        completed++;
+        const elapsed = (globalThis.performance?.now?.() ?? Date.now()) - startedAt;
+        if (completed > 0 && elapsed >= budgetMs) break;
+      }
+
+      const now = globalThis.performance?.now?.() ?? Date.now();
+      if (now - this.updateTime > 1000) {
+        this.updateTime = now;
+        this.tps = this.updatesPerSecond;
+        this.updatesPerSecond = 0;
+        this.onFPSUpdate();
+      }
+    };
+
+    const originalDraw = game.draw;
+    if (typeof originalDraw === 'function') {
+      game.draw = function adaptiveDraw() {
+        const level = Math.max(0, Math.min(UPDATE_COUNTS.length - 1, Number(this.updateSpeedLevel) || 0));
+        if (level < 3) return originalDraw.call(this);
+        const previousLevel = this.updateSpeedLevel;
+        this.updateSpeedLevel = 0;
+        try {
+          return originalDraw.call(this);
+        } finally {
+          this.updateSpeedLevel = previousLevel;
+        }
+      };
+    }
+    game[PATCHED_GAME_KEY] = true;
+  }
+
+  const THEME_CSS = `;
+    :root {
+      --logic-background: #f7f8fb;
+      --logic-surface: #ffffff;
+      --logic-surface-strong: #eef2f8;
+      --logic-ink: #202838;
+      --logic-muted: #6d7584;
+      --logic-border: rgba(32, 40, 56, 0.12);
+    }
+    html[data-logic-arrows-theme='dark'] {
+      --logic-background: #111722;
+      --logic-surface: #1d2636;
+      --logic-surface-strong: #263247;
+      --logic-ink: #edf2ff;
+      --logic-muted: #aab4c7;
+      --logic-border: rgba(237, 242, 255, 0.16);
+      --blue: #345a9f;
+      --dark-blue: #243f78;
+      --accent-color: #80a8ff;
+      color-scheme: dark;
+    }
+    @media (prefers-color-scheme: dark) {
+      html:not([data-logic-arrows-theme]) {
+        --logic-background: #111722;
+        --logic-surface: #1d2636;
+        --logic-surface-strong: #263247;
+        --logic-ink: #edf2ff;
+        --logic-muted: #aab4c7;
+        --logic-border: rgba(237, 242, 255, 0.16);
+        --blue: #345a9f;
+        --dark-blue: #243f78;
+        --accent-color: #80a8ff;
+        color-scheme: dark;
+      }
+    }
+    html[data-logic-arrows-theme='light'] {
+      color-scheme: light;
+    }
+    body,
+    #menu-page-main-div {
+      background-color: var(--logic-background);
+      color: var(--logic-ink);
+      transition: background-color 180ms ease, color 180ms ease;
+    }
+    #logic-arrows-launcher-settings-heading {
+      margin: clamp(24px, 5vh, 56px) 0 0 clamp(24px, 10vw, 140px);
+      font-family: var(--font);
+      color: var(--logic-ink);
+      font-size: clamp(1.7rem, 3.2vw, 2.65rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    #logic-arrows-launcher-settings-subtitle {
+      margin: 0 0 0 clamp(24px, 10vw, 140px);
+      font-family: var(--font);
+      color: var(--logic-muted);
+      font-size: 0.98rem;
+    }
+    .settings-table {
+      margin: 1.5rem 0 0 clamp(24px, 10vw, 140px);
+      border-collapse: separate;
+      border-spacing: 0 0.65rem;
+      font-family: var(--font);
+      font-size: 1.08rem;
+      color: var(--logic-ink);
+    }
+    .settings-table td {
+      background: var(--logic-surface);
+      border-top: 1px solid var(--logic-border);
+      border-bottom: 1px solid var(--logic-border);
+    }
+    .settings-table td:first-child {
+      border-left: 1px solid var(--logic-border);
+      border-radius: 0.8rem 0 0 0.8rem;
+      padding: 0.85rem 0 0.85rem 1rem;
+    }
+    .settings-table td:last-child {
+      border-right: 1px solid var(--logic-border);
+      border-radius: 0 0.8rem 0.8rem 0;
+      padding: 0.85rem 1rem;
+    }
+    .settings-table .setting-name {
+      min-width: 15rem;
+      padding-right: 2.5rem;
+      font-weight: 700;
+    }
+    .settings-table .setting-value select,
+    .settings-table .setting-value input[type='range'] {
+      accent-color: var(--accent-color);
+    }
+    .settings-table .setting-value select {
+      min-width: 12rem;
+      padding: 0.45rem 2.2rem 0.45rem 0.7rem;
+      border: 1px solid var(--logic-border);
+      border-radius: 0.55rem;
+      background: var(--logic-surface-strong);
+      color: var(--logic-ink);
+      font: inherit;
+      cursor: pointer;
+    }
+    .settings-table .setting-value select:focus-visible {
+      outline: 2px solid var(--accent-color);
+      outline-offset: 2px;
+    }
+    .settings-table hr {
+      border: 0;
+      border-top: 1px solid var(--logic-border);
+    }
+    .settings-table .setting-divider {
+      background: transparent;
+      border: 0;
+      padding: 0.25rem 0;
+    }
+    .logout-button {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 0.35rem 1rem rgba(33, 63, 133, 0.18);
+    }
+    html[data-logic-arrows-theme='dark'] .ui-saved-item,
+    html[data-logic-arrows-theme='dark'] .ui-new-item,
+    html[data-logic-arrows-theme='dark'] .ui-menu-panel {
+      background-color: var(--logic-surface);
+      color: var(--logic-ink);
+    }
+    html[data-logic-arrows-theme='dark'] .ui-saved-item-tags,
+    html[data-logic-arrows-theme='dark'] .ui-menu-saving,
+    html[data-logic-arrows-theme='dark'] .ui-menu-back-text {
+      color: var(--logic-muted);
+    }
+    html[data-logic-arrows-theme='dark'] .ui-menu-map-name-input {
+      color: var(--logic-ink);
+      border-bottom-color: var(--logic-muted);
+    }
+    #logic-arrows-launcher-theme-row td {
+      background: var(--logic-surface-strong);
+    }
+    @media (max-width: 700px) {
+      #logic-arrows-launcher-settings-heading,
+      #logic-arrows-launcher-settings-subtitle,
+      .settings-table {
+        margin-left: 5vw;
+      }
+      .settings-table .setting-name {
+        min-width: 0;
+        padding-right: 1rem;
+      }
+      .settings-table .setting-value select {
+        min-width: 9rem;
+      }
+    }
+  `;
+
+  function ensureThemeStyle() {
+    let style = document.getElementById(THEME_STYLE_ID);
+    if (!style) {
+      style = document.createElement('style');
+      style.id = THEME_STYLE_ID;
+      document.head?.append(style);
+    }
+    if (style.textContent !== THEME_CSS) style.textContent = THEME_CSS;
+  }
+
+  function readTheme() {
+    const value = globalThis.localStorage?.getItem(THEME_STORAGE_KEY);
+    return value === 'dark' || value === 'light' || value === 'system' ? value : 'system';
+  }
+
+  function applyTheme(value = readTheme()) {
+    const theme = value === 'dark' || value === 'light' || value === 'system' ? value : 'system';
+    if (theme === 'system') document.documentElement.removeAttribute('data-logic-arrows-theme');
+    else document.documentElement.setAttribute('data-logic-arrows-theme', theme);
+  }
+
+  function ensureSettingsTheme() {
+    if (globalThis.location.pathname !== '/settings') return;
+    const main = document.querySelector('.settings-page');
+    const table = main?.querySelector('.settings-table');
+    if (!main || !table) return;
+
+    if (!document.getElementById(THEME_HEADING_ID)) {
+      const heading = document.createElement('div');
+      heading.id = THEME_HEADING_ID;
+      heading.textContent = 'Настройки';
+      const subtitle = document.createElement('div');
+      subtitle.id = 'logic-arrows-launcher-settings-subtitle';
+      subtitle.textContent = 'Внешний вид применяется сразу. Симуляция больших схем сама бережёт FPS.';
+      main.insertBefore(heading, table);
+      main.insertBefore(subtitle, table);
+    }
+
+    if (document.getElementById(THEME_ROW_ID)) return;
+    const row = document.createElement('tr');
+    row.id = THEME_ROW_ID;
+    const label = document.createElement('td');
+    label.className = 'setting-name';
+    label.textContent = 'Тема:';
+    const value = document.createElement('td');
+    value.className = 'setting-value';
+    const select = document.createElement('select');
+    select.id = THEME_SELECT_ID;
+    select.setAttribute('aria-label', 'Тема интерфейса');
+    [['system', 'Системная'], ['dark', 'Тёмная'], ['light', 'Светлая']].forEach(([optionValue, optionText]) => {
+      const option = document.createElement('option');
+      option.value = optionValue;
+      option.textContent = optionText;
+      select.append(option);
+    });
+    select.value = readTheme();
+    select.addEventListener('change', () => {
+      const next = select.value;
+      if (next !== 'dark' && next !== 'light' && next !== 'system') return;
+      localStorage.setItem(THEME_STORAGE_KEY, next);
+      applyTheme(next);
+    });
+    value.append(select);
+    row.append(label, value);
+    const interfaceSelect = table.querySelector('.interface-mode-select');
+    const interfaceRow = interfaceSelect?.closest('tr');
+    if (interfaceRow) interfaceRow.after(row);
+    else table.append(row);
   }
 
   function exportCurrentMap() {
@@ -270,6 +549,10 @@ public static class MapBridgeScript
   }
 
   function syncUi() {
+    ensureThemeStyle();
+    applyTheme();
+    patchGamePerformance();
+    ensureSettingsTheme();
     addLobbyImportCard();
     addExportButton();
     tryPendingLobbyImport();

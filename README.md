@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/Nikita112jj/LogicArrowsLauncher/releases/latest"><img src="https://img.shields.io/badge/Скачать-актуальный%20релиз-2f8f4e?style=for-the-badge" alt="Скачать последний релиз"></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Версия-1.0.5%20map%20patch-7d5cff?style=for-the-badge" alt="Версия 1.0.5 map patch"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Версия-1.0.6-7d5cff?style=for-the-badge" alt="Версия 1.0.6"></a>
   <img src="https://img.shields.io/badge/Windows-x64-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows x64">
   <img src="https://img.shields.io/badge/.NET-8-512BD4?style=for-the-badge&logo=dotnet&logoColor=white" alt=".NET 8">
 </p>
@@ -24,11 +24,11 @@
 
 | Платформа | Скачать / открыть | Что внутри |
 |---|---|---|
-| **Windows x64** | [Скачать LogicArrowsLauncher.exe](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/download/v1.0.5/LogicArrowsLauncher.exe) | Готовый self-contained EXE |
+| **Windows x64** | [Скачать LogicArrowsLauncher.exe](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/download/v1.0.6/LogicArrowsLauncher.exe) | Готовый self-contained EXE |
 | **Linux** | [Открыть Linux source](linux/README.md) | Исходники и план GTK/Avalonia/Qt WebEngine-порта |
 | **macOS** | [Открыть macOS source](mac/README.md) | Исходники и план Avalonia/WKWebView-порта |
 
-Также можно открыть [полный релиз v1.0.5 patch](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.5), где лежат EXE, ICO и официальная PNG-иконка игры.
+Также можно открыть [полный релиз v1.0.6](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.6), где лежат EXE, ICO и официальная PNG-иконка игры.
 
 ## Что умеет лаунчер
 
@@ -42,13 +42,17 @@
 - Не перезагружает уже открытую страницу при повторном входе, чтобы игровые бинды не терялись.
 - Поддерживает fullscreen через WebView2: **F11** показывает или скрывает стандартную Windows-рамку окна, не уменьшая игру.
 - Использует официальную favicon Logic Arrows в EXE, заголовке окна и на панели задач.
-- Импортирует собственные `.map`-файлы из лобби через стандартный выбор файла Windows.
+- Импортирует собственные `.map`-файлы из вкладки **«Карты»** игрового лобби через стандартный выбор файла Windows.
 - Экспортирует открытую карту кнопкой **«Экспорт .map»** в штатных настройках карты.
+- При высоком TPS распределяет тики больших механизмов по небольшому бюджету кадра, чтобы не блокировать отрисовку.
+- Добавляет в настройки аккуратный пункт **«Тема: Системная / Тёмная / Светлая»** с применением сразу и сохранением выбора.
 - Проверяет формат, версию `1_4`, размер и Base64 до передачи карты в официальный runtime игры.
 
-## v1.0.5 map patch
+## v1.0.6
 
-В этой версии добавлен собственный формат `.map`. В лобби лаунчера кнопка **«Импорт .map»** открывает Проводник Windows и подготавливает выбранную карту к запуску. В настройках карты Logic Arrows появляется кнопка **«Экспорт .map»**, которая сохраняет текущую карту.
+В v1.0.6 добавлен adaptive TPS governor для больших сложных механизмов: на максимальных уровнях simulation ticks больше не забивают один animation frame целиком, поэтому рендер получает отдельный бюджет. В настройках появился dropdown **«Тема»** с вариантами **«Системная»**, **«Тёмная»** и **«Светлая»**.
+
+Импорт `.map` находится во вкладке **«Карты»** игрового лобби. Открой **«Играть» → «Карты» → «Импорт .map»**, выбери файл и дождись открытия новой карты. Экспорт остаётся в штатном меню открытой карты.
 
 **Esc** остаётся клавишей меню игры, **F1** возвращает в лаунчер, а **F11** переключает стандартную Windows-рамку. Повторный вход не перезагружает готовую страницу, поэтому игровые бинды не должны теряться.
 
@@ -67,7 +71,7 @@ EXE собран как **self-contained single-file win-x64**. Отдельны
 | Действие | Результат |
 |---|---|
 | **Играть** | Открывает подготовленную Logic Arrows в fullscreen |
-| **Импорт .map** | Выбирает карту в лобби и импортирует её после запуска |
+| **Импорт .map** | Во вкладке «Карты» игрового лобби создаёт новую карту и загружает файл |
 | **Esc** | Передаётся Logic Arrows и открывает её меню |
 | **F1** | Выходит из игры в экран лаунчера |
 | **F11** | Показывает или скрывает стандартную верхнюю Windows-панель с кнопками свернуть, развернуть и закрыть, не уменьшая игру |
