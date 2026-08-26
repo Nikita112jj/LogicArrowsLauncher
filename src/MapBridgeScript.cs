@@ -26,6 +26,7 @@ public static class MapBridgeScript
   const PATCHED_DARK_RENDER_KEY = '__logicArrowsLauncherDarkRenderClear';
   const PATCHED_DARK_ARROW_KEY = '__logicArrowsLauncherDarkArrowCell';
   const PATCHED_DARK_GRID_KEY = '__logicArrowsLauncherDarkGrid';
+  const PATCHED_FOCUS_RECOVERY_KEY = '__logicArrowsLauncherFocusRecovery';
   const UPDATE_COUNTS = [1, 1, 1, 5, 20, 100];
   const SKIP_COUNTS = [20, 5, 1, 1, 1, 1];
   let pendingLobbyImport = null;
@@ -831,6 +832,34 @@ public static class MapBridgeScript
     return Boolean(globalThis.matchMedia?.('(prefers-color-scheme: dark)')?.matches);
   }
 
+  function installGameFocusRecovery() {
+    if (!/^\/map-[^/]+$/.test(globalThis.location.pathname) || globalThis[PATCHED_FOCUS_RECOVERY_KEY]) return;
+
+    const focusGameSurface = () => {
+      if (document.visibilityState === 'hidden') return;
+      const canvas = document.querySelector('canvas');
+      if (!canvas) return;
+      if (!canvas.hasAttribute('tabindex')) canvas.setAttribute('tabindex', '-1');
+      try {
+        canvas.focus({ preventScroll: true });
+      } catch {
+        try { canvas.focus(); } catch { }
+      }
+    };
+    const recover = () => {
+      if (document.visibilityState === 'hidden') return;
+      globalThis.setTimeout(focusGameSurface, 0);
+    };
+
+    document.addEventListener?.('visibilitychange', () => {
+      if (document.visibilityState === 'visible') recover();
+    }, { passive: true });
+    globalThis.addEventListener?.('focus', recover, true);
+    globalThis.addEventListener?.('pageshow', recover);
+    globalThis[PATCHED_FOCUS_RECOVERY_KEY] = true;
+    globalThis.__logicArrowsLauncherRecoverInput = recover;
+  }
+
   function patchDarkArrowCellShader(source) {
     if (!isDarkTheme() || typeof source !== 'string') return source;
     if (
@@ -1344,6 +1373,7 @@ public static class MapBridgeScript
   }
 
   function syncUi() {
+    installGameFocusRecovery();
     installDarkArrowCellShaderHook();
     patchDarkGridComposite();
     patchDarkRenderClear();
