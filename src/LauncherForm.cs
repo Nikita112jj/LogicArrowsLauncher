@@ -502,25 +502,36 @@ public sealed class LauncherForm : Form
 
         var payload = JsonSerializer.Serialize(new { data = envelope.Data });
         var script = $"globalThis.__logicArrowsLauncherImport?.({payload})";
-        var response = await webView.CoreWebView2.ExecuteScriptAsync(script);
-        using var document = JsonDocument.Parse(response);
-        var root = document.RootElement;
-        if (root.ValueKind != JsonValueKind.Object)
-        {
-            throw new InvalidDataException("Bridge импорта карты недоступен.");
-        }
-        if (root.TryGetProperty("error", out var error))
-        {
-            throw new InvalidDataException(error.GetString() ?? "Импорт карты отклонён игрой.");
-        }
-        if (!root.TryGetProperty("ok", out var ok) || ok.ValueKind != JsonValueKind.True)
-        {
-            throw new InvalidDataException("Импорт карты отклонён игрой.");
-        }
+        const int maxAttempts = 20;
+        const int retryDelayMs = 250;
 
-        pendingMapImport = null;
-        loadingFile.Text = "Карта импортирована в Logic Arrows";
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            var response = await webView.CoreWebView2.ExecuteScriptAsync(script);
+            using var document = JsonDocument.Parse(response);
+            var root = document.RootElement;
+            var errorMessage = root.ValueKind == JsonValueKind.Object && root.TryGetProperty("error", out var error)
+                ? error.GetString()
+                : root.ValueKind == JsonValueKind.Object ? null : "Bridge импорта карты недоступен.";
+
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("ok", out var ok) && ok.ValueKind == JsonValueKind.True)
+            {
+                pendingMapImport = null;
+                loadingFile.Text = "Карта импортирована в Logic Arrows";
+                return;
+            }
+
+            if (!IsImportReadinessError(errorMessage) || attempt == maxAttempts)
+            {
+                throw new InvalidDataException(errorMessage ?? "Импорт карты отклонён игрой.");
+            }
+
+            await Task.Delay(retryDelayMs);
+        }
     }
+
+    private static bool IsImportReadinessError(string? message) =>
+        message is "Редактор карты ещё не готов." or "Bridge импорта карты недоступен.";
 
     private async Task ExportCurrentMapAsync()
     {

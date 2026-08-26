@@ -13,9 +13,9 @@
 
 `LogicArrowsLauncher.exe` is a Windows x64 self-contained single-file publish for v1.0.5 map patch.
 
-SHA-256: `b72afaf9bd65945170da3ecaddee9f90d32adfb23508dfbabf188990bbe2f179`
+SHA-256: `1edf8b149166c8f56f03118482ae2574287de7e923be60df5de73cb1119389e6`
 
-Size: 72,028,390 bytes.
+Size: 72,028,602 bytes.
 
 The Release EXE is generated from the reviewed source. Generated binaries, research captures, local logs and caches are excluded from the source commit and uploaded only as release assets where intended.
 
