@@ -300,8 +300,11 @@ public static class MapBridgeScript
       overflow: hidden;
       box-shadow: 0 0.35rem 0.9rem rgba(33, 63, 133, 0.24);
     }
+    #logic-arrows-launcher-theme-row,
     #logic-arrows-launcher-theme-row td {
-      background: var(--logic-surface-strong);
+      background: transparent !important;
+      box-shadow: none !important;
+      border-color: transparent !important;
     }
     #logic-arrows-launcher-export-map {
       background-color: var(--logic-surface-strong);
@@ -366,6 +369,159 @@ public static class MapBridgeScript
     .settings-table input[type='checkbox']:focus-visible {
       outline: 2px solid var(--accent-color);
       outline-offset: 3px;
+    }
+    .settings-table input[type='checkbox']:hover {
+      border-color: var(--accent-color);
+    }
+    html[data-logic-arrows-theme='light'] .settings-table input[type='checkbox'] {
+      border-color: #9aa9bf;
+      background: #e8edf5;
+      box-shadow: inset 0 1px 2px rgba(24, 38, 62, 0.2), 0 1px 2px rgba(24, 38, 62, 0.08);
+    }
+    html[data-logic-arrows-theme='light'] .settings-table input[type='checkbox']:checked {
+      border-color: #315fd4;
+      background: #315fd4;
+      box-shadow: 0 0 0 2px rgba(49, 95, 212, 0.22);
+    }
+    @media (prefers-color-scheme: light) {
+      html:not([data-logic-arrows-theme='dark']) .settings-table input[type='checkbox'] {
+        border-color: #9aa9bf;
+        background: #e8edf5;
+        box-shadow: inset 0 1px 2px rgba(24, 38, 62, 0.2), 0 1px 2px rgba(24, 38, 62, 0.08);
+      }
+      html:not([data-logic-arrows-theme='dark']) .settings-table input[type='checkbox']:checked {
+        border-color: #315fd4;
+        background: #315fd4;
+        box-shadow: 0 0 0 2px rgba(49, 95, 212, 0.22);
+      }
+    }
+    .settings-table select {
+      appearance: none;
+      -webkit-appearance: none;
+      min-height: 2.65rem;
+      padding: 0.55rem 2.75rem 0.55rem 0.95rem;
+      border: 1px solid #a8b4c8 !important;
+      border-radius: 0.85rem !important;
+      background-color: var(--logic-surface) !important;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='m3.2 5.2 3.8 3.8 3.8-3.8' fill='none' stroke='%23485469' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.85rem center;
+      color: var(--logic-ink) !important;
+      box-shadow: 0 1px 2px rgba(20, 34, 57, 0.08);
+      cursor: pointer;
+      transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+    }
+    .settings-table select:hover {
+      border-color: var(--accent-color) !important;
+    }
+    .settings-table select:focus,
+    .settings-table select:focus-visible {
+      outline: none;
+      border-color: var(--accent-color) !important;
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 20%, transparent), 0 2px 8px rgba(20, 34, 57, 0.12);
+    }
+    .settings-table select option {
+      padding: 0.65rem 0.8rem;
+      border-radius: 0.65rem;
+      background: var(--logic-surface);
+      color: var(--logic-ink);
+    }
+    .logic-custom-select {
+      position: relative;
+      width: 100%;
+      min-width: 10rem;
+    }
+    .logic-custom-select > select {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    .logic-custom-select-button {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      min-height: 2.65rem;
+      padding: 0.55rem 2.75rem 0.55rem 0.95rem;
+      border: 1px solid #a8b4c8 !important;
+      border-radius: 0.85rem !important;
+      background-color: var(--logic-surface) !important;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='m3.2 5.2 3.8 3.8 3.8-3.8' fill='none' stroke='%23485469' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.85rem center;
+      color: var(--logic-ink) !important;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(20, 34, 57, 0.08);
+      transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+    }
+    .logic-custom-select-button:hover,
+    .logic-custom-select-button[aria-expanded='true'] {
+      border-color: var(--accent-color) !important;
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 13%, transparent), 0 2px 8px rgba(20, 34, 57, 0.12);
+    }
+    .logic-custom-select-button:focus,
+    .logic-custom-select-button:focus-visible {
+      outline: none;
+      border-color: var(--accent-color) !important;
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 22%, transparent), 0 2px 8px rgba(20, 34, 57, 0.14);
+    }
+    .logic-custom-select-menu {
+      position: absolute;
+      z-index: 40;
+      top: calc(100% + 0.45rem);
+      left: 0;
+      right: 0;
+      display: none;
+      padding: 0.35rem;
+      border: 1px solid var(--logic-border) !important;
+      border-radius: 0.9rem;
+      background: var(--logic-surface-strong) !important;
+      color: var(--logic-ink) !important;
+      box-shadow: 0 0.75rem 1.5rem rgba(20, 34, 57, 0.2);
+    }
+    .logic-custom-select[data-open='1'] .logic-custom-select-menu {
+      display: grid;
+      gap: 0.18rem;
+    }
+    .logic-custom-select-option {
+      min-height: 2.2rem;
+      display: flex;
+      align-items: center;
+      padding: 0.45rem 0.7rem;
+      border-radius: 0.62rem;
+      color: var(--logic-ink);
+      cursor: pointer;
+      transition: background-color 140ms ease, color 140ms ease;
+    }
+    .logic-custom-select-option:hover,
+    .logic-custom-select-option:focus-visible,
+    .logic-custom-select-option[data-selected='1'] {
+      background: color-mix(in srgb, var(--accent-color) 17%, transparent);
+      color: var(--logic-ink);
+      outline: none;
+    }
+    html[data-logic-arrows-theme='dark'] .logic-custom-select-button {
+      border-color: #53617a !important;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='m3.2 5.2 3.8 3.8 3.8-3.8' fill='none' stroke='%23e8edf7' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+    html[data-logic-arrows-theme='dark'] .logic-custom-select-menu {
+      border-color: #53617a !important;
+      box-shadow: 0 0.9rem 2rem rgba(0, 0, 0, 0.32);
+    }
+    html[data-logic-arrows-theme='dark'] .logic-custom-select-option:hover,
+    html[data-logic-arrows-theme='dark'] .logic-custom-select-option:focus-visible,
+    html[data-logic-arrows-theme='dark'] .logic-custom-select-option[data-selected='1'] {
+      background: rgba(121, 151, 255, 0.2);
+    }
+    html[data-logic-arrows-theme='dark'] .settings-table select {
+      border-color: #53617a !important;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='m3.2 5.2 3.8 3.8 3.8-3.8' fill='none' stroke='%23e8edf7' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
     }
     .ui-inventory,
     .ui-inventory-line,
@@ -664,6 +820,102 @@ public static class MapBridgeScript
     else table.append(row);
   }
 
+  function upgradeSettingsDropdowns() {
+    document.querySelectorAll('.settings-table select').forEach((select) => {
+      if (select.dataset.logicCustomDropdown === '1') return;
+      select.dataset.logicCustomDropdown = '1';
+
+      const shell = document.createElement('div');
+      shell.className = 'logic-custom-select';
+      shell.dataset.open = '0';
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'logic-custom-select-button';
+      button.setAttribute('aria-haspopup', 'listbox');
+      button.setAttribute('aria-expanded', 'false');
+      button.setAttribute('aria-label', select.getAttribute('aria-label') || 'Выбор значения');
+      const menu = document.createElement('div');
+      menu.className = 'logic-custom-select-menu';
+      menu.setAttribute('role', 'listbox');
+
+      const close = () => {
+        shell.dataset.open = '0';
+        button.setAttribute('aria-expanded', 'false');
+      };
+      const open = () => {
+        document.querySelectorAll('.logic-custom-select[data-open="1"]').forEach((other) => {
+          if (other !== shell) {
+            other.dataset.open = '0';
+            other.querySelector('.logic-custom-select-button')?.setAttribute('aria-expanded', 'false');
+          }
+        });
+        shell.dataset.open = '1';
+        button.setAttribute('aria-expanded', 'true');
+      };
+      const sync = () => {
+        const current = select.options[select.selectedIndex];
+        button.textContent = current?.textContent || select.value;
+        menu.querySelectorAll('[role="option"]').forEach((option) => {
+          const selected = option.dataset.value === select.value;
+          option.setAttribute('aria-selected', selected ? 'true' : 'false');
+          option.dataset.selected = selected ? '1' : '0';
+        });
+      };
+      const choose = (value) => {
+        if (select.value !== value) {
+          select.value = value;
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        sync();
+        close();
+        button.focus();
+      };
+
+      Array.from(select.options).forEach((sourceOption) => {
+        const option = document.createElement('div');
+        option.className = 'logic-custom-select-option';
+        option.dataset.value = sourceOption.value;
+        option.textContent = sourceOption.textContent;
+        option.setAttribute('role', 'option');
+        option.tabIndex = -1;
+        option.addEventListener('click', () => choose(sourceOption.value));
+        option.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            choose(sourceOption.value);
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            close();
+            button.focus();
+          }
+        });
+        menu.append(option);
+      });
+
+      button.addEventListener('click', () => {
+        if (shell.dataset.open === '1') close();
+        else open();
+      });
+      button.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          open();
+          menu.querySelector(`[data-value="${CSS.escape(select.value)}"]`)?.focus();
+        } else if (event.key === 'Escape') {
+          close();
+        }
+      });
+      select.addEventListener('change', sync);
+      document.addEventListener('click', (event) => {
+        if (!shell.contains(event.target)) close();
+      });
+
+      select.parentElement?.insertBefore(shell, select);
+      shell.append(button, menu, select);
+      sync();
+    });
+  }
+
   function exportCurrentMap() {
     const { namespace, gamePage, map } = getRuntime();
     const buffer = namespace.save(map);
@@ -889,6 +1141,7 @@ public static class MapBridgeScript
     applyTheme();
     patchGamePerformance();
     ensureSettingsTheme();
+    upgradeSettingsDropdowns();
     addLobbyImportCard();
     addExportButton();
     tryPendingLobbyImport();
