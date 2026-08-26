@@ -188,6 +188,9 @@ sandbox.globalThis = sandbox;
 
 const patchedGame = sandbox.game.navigation.gamePage.game;
 const source = fs.readFileSync('src/MapBridgeScript.cs', 'utf8');
+const launcherSource = fs.readFileSync('src/LauncherForm.cs', 'utf8');
+assert.match(launcherSource, /Activated \+= LauncherForm_Activated;/, 'window activation restores game focus');
+assert.match(launcherSource, /globalThis\.focus\?\.\(\); document\.querySelector\('canvas'\)/, 'page focus ping restores canvas input');
 const match = source.match(/public const string Source = """\n([\s\S]*?)\n""";/);
 assert.ok(match, 'bridge raw string found');
 vm.runInNewContext(match[1], sandbox, { filename: 'MapBridgeScript.Source' });
@@ -220,6 +223,8 @@ assert.equal(storage.get('logic-arrows-theme'), 'dark', 'theme preference persis
 assert.equal(html.attributes['data-logic-arrows-theme'], 'dark', 'dark theme applied immediately');
 assert.equal(html.attributes['data-logic-arrows-dark-ui'], '1', 'dark UI scope applied only for dark theme');
 assert.match(match[1], /html\[data-logic-arrows-dark-ui='1'\] \.ui-toolbar/, 'game overlay overrides are scoped to dark UI');
+assert.match(match[1], /html\[data-logic-arrows-dark-ui='1'\] \.level-side-panel/, 'levels panel dark style is scoped to dark UI');
+assert.match(match[1], /background-color: transparent !important;\n\s+color: inherit !important;/, 'level panel text does not get separate tile backgrounds');
 assert.doesNotMatch(match[1], /\n    \.ui-toolbar-item,\n/, 'no global toolbar item override remains');
 
 patchedGame.render.clearRenderTextures();

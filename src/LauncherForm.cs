@@ -82,6 +82,8 @@ public sealed class LauncherForm : Form
         Controls.Add(header);
         loadingOverlay.Resize += (_, _) => CenterLoadingCard();
         Resize += (_, _) => CenterLoadingCard();
+        Activated += LauncherForm_Activated;
+        Deactivate += LauncherForm_Deactivate;
         Shown += LauncherForm_Shown;
     }
 
@@ -694,6 +696,34 @@ public sealed class LauncherForm : Form
         QueueGameViewFocus();
     }
 
+    private void LauncherForm_Activated(object? sender, EventArgs e)
+    {
+        if (!isGameFullscreen || IsDisposed || !IsHandleCreated) return;
+        try
+        {
+            BeginInvoke(new Action(() =>
+            {
+                if (!IsDisposed && isGameFullscreen)
+                {
+                    QueueGameViewFocus();
+                }
+            }));
+        }
+        catch (InvalidOperationException)
+        {
+            // The form can be between activation and handle recreation.
+        }
+    }
+
+    private void LauncherForm_Deactivate(object? sender, EventArgs e)
+    {
+        if (isGameFullscreen)
+        {
+            // Cancel delayed attempts while another window owns keyboard focus.
+            focusRequestId++;
+        }
+    }
+
     private async void QueueGameViewFocus()
     {
         if (IsDisposed || !IsHandleCreated) return;
@@ -722,6 +752,22 @@ public sealed class LauncherForm : Form
             }
             webView.Select();
             webView.Focus();
+            try
+            {
+                if (webView.CoreWebView2 is not null)
+                {
+                    await webView.CoreWebView2.ExecuteScriptAsync(
+                        "globalThis.focus?.(); document.querySelector('canvas')?.focus?.();");
+                }
+            }
+            catch (COMException)
+            {
+                // The page can be between navigation and activation.
+            }
+            catch (InvalidOperationException)
+            {
+                // WebView2 can reject script execution during recreation.
+            }
         }
     }
 

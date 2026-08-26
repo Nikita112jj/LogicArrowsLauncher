@@ -549,6 +549,41 @@ public static class MapBridgeScript
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='m3.2 5.2 3.8 3.8 3.8-3.8' fill='none' stroke='%23e8edf7' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
     }
+    html[data-logic-arrows-dark-ui='1'] .level-side-panel {
+      background-color: var(--logic-game-panel) !important;
+      color: var(--logic-game-ink) !important;
+      border: 1px solid var(--logic-border) !important;
+    }
+    html[data-logic-arrows-dark-ui='1'] .level-side-panel h1,
+    html[data-logic-arrows-dark-ui='1'] .level-side-panel p,
+    html[data-logic-arrows-dark-ui='1'] .level-side-panel span,
+    html[data-logic-arrows-dark-ui='1'] .level-side-panel label {
+      background-color: transparent !important;
+      color: inherit !important;
+      border-color: transparent !important;
+    }
+    html[data-logic-arrows-dark-ui='1'] .level-side-panel {
+      box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.34) !important;
+    }
+    html[data-logic-arrows-dark-ui='1'] .level-side-panel .level-tutorial-back-button {
+      background-color: var(--logic-game-panel-strong) !important;
+      color: var(--logic-game-ink) !important;
+      border: 1px solid var(--logic-border) !important;
+    }
+    html[data-logic-arrows-dark-ui='1'] .level-side-panel .inline-arrow {
+      border-bottom-color: var(--logic-game-muted) !important;
+    }
+    html[data-logic-arrows-dark-ui='1'] .level-side-panel .inline-key,
+    html[data-logic-arrows-dark-ui='1'] .level-side-panel .inline-key-blue,
+    html[data-logic-arrows-dark-ui='1'] .level-side-panel .inline-icon-blue {
+      background-color: #1d2a3d !important;
+      color: #f3f6ff !important;
+    }
+    html[data-logic-arrows-dark-ui='1'] .level-side-panel .inline-spoiler-caption,
+    html[data-logic-arrows-dark-ui='1'] .level-side-panel .inline-spoiler-text {
+      color: var(--logic-game-muted) !important;
+      border-color: var(--logic-game-muted) !important;
+    }
     html[data-logic-arrows-dark-ui='1'] .ui-inventory,
     html[data-logic-arrows-dark-ui='1'] .ui-inventory-items,
     html[data-logic-arrows-dark-ui='1'] .ui-toolbar-controller,
