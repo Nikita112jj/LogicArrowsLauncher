@@ -49,7 +49,11 @@ public static class MapFileService
             throw new InvalidDataException("Файл .map слишком большой.");
         }
 
-        var text = File.ReadAllText(path);
+        return ReadText(File.ReadAllText(path));
+    }
+
+    public static MapFileEnvelope ReadText(string text)
+    {
         if (text.Length > MaxFileCharacters)
         {
             throw new InvalidDataException("Файл .map слишком большой.");

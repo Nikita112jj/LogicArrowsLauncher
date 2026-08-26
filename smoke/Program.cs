@@ -44,8 +44,10 @@ var envelope = new MapFileEnvelope
 };
 MapFileService.Write(mapPath, envelope);
 var roundTrip = MapFileService.Read(mapPath);
+var textRoundTrip = MapFileService.ReadText(File.ReadAllText(mapPath));
 Console.WriteLine($"map_round_trip={roundTrip.Data == envelope.Data}");
-if (roundTrip.Data != envelope.Data || roundTrip.SiteVersion != ResourceCatalog.CurrentVersion) return 9;
+Console.WriteLine($"map_text_round_trip={textRoundTrip.Data == envelope.Data}");
+if (roundTrip.Data != envelope.Data || textRoundTrip.Data != envelope.Data || roundTrip.SiteVersion != ResourceCatalog.CurrentVersion) return 9;
 File.WriteAllText(mapPath, "{\"format\":\"wrong\",\"formatVersion\":1,\"siteVersion\":\"1_4\",\"data\":\"AAECAw==\"}");
 try
 {

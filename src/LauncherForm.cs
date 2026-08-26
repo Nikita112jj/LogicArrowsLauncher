@@ -13,7 +13,6 @@ public sealed class LauncherForm : Form
     private readonly Label headerTitle = new();
     private readonly Label headerDetail = new();
     private readonly Button playButton = new();
-    private readonly Button importMapButton = new();
     private readonly WebView2 webView = new();
     private readonly Panel loadingOverlay = new();
     private readonly Panel loadingCard = new();
@@ -36,8 +35,8 @@ public sealed class LauncherForm : Form
     private Rectangle launcherBounds;
     private TaskCompletionSource<bool>? gamePageReadySignal;
     private bool gamePageReady;
-    private MapFileEnvelope? pendingMapImport;
     private bool exportInProgress;
+    private bool lobbyImportInProgress;
 
     public LauncherForm()
     {
@@ -86,14 +85,13 @@ public sealed class LauncherForm : Form
         var headerLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 3,
+            ColumnCount = 2,
             RowCount = 1,
             BackColor = Color.Transparent,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
         };
         headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         headerLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
@@ -137,25 +135,8 @@ public sealed class LauncherForm : Form
         playButton.Enabled = false;
         playButton.Click += PlayButton_Click;
 
-        importMapButton.Text = "Импорт .map";
-        importMapButton.AutoSize = true;
-        importMapButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-        importMapButton.MinimumSize = new Size(118, 30);
-        importMapButton.MaximumSize = new Size(132, 30);
-        importMapButton.Height = 30;
-        importMapButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        importMapButton.Margin = new Padding(8, 5, 0, 5);
-        importMapButton.FlatStyle = FlatStyle.Flat;
-        importMapButton.ForeColor = Color.White;
-        importMapButton.BackColor = Color.FromArgb(58, 76, 112);
-        importMapButton.FlatAppearance.BorderSize = 0;
-        importMapButton.Visible = false;
-        importMapButton.Enabled = false;
-        importMapButton.Click += ImportMapButton_Click;
-
         headerLayout.Controls.Add(headerText, 0, 0);
-        headerLayout.Controls.Add(importMapButton, 1, 0);
-        headerLayout.Controls.Add(playButton, 2, 0);
+        headerLayout.Controls.Add(playButton, 1, 0);
         header.Controls.Add(headerLayout);
     }
 
@@ -252,10 +233,6 @@ public sealed class LauncherForm : Form
                 }
             }
             await WaitForGamePageReadyAsync();
-            if (pendingMapImport is not null)
-            {
-                await ImportPendingMapAsync();
-            }
             EnterGameFullscreen();
         }
         catch (Microsoft.Web.WebView2.Core.WebView2RuntimeNotFoundException)
@@ -273,36 +250,7 @@ public sealed class LauncherForm : Form
             {
                 var canPlay = synchronizer?.HasRequiredCache() == true;
                 playButton.Enabled = canPlay;
-                importMapButton.Enabled = canPlay;
             }
-        }
-    }
-
-    private void ImportMapButton_Click(object? sender, EventArgs e)
-    {
-        if (isBusy || isGameFullscreen || synchronizer?.HasRequiredCache() != true) return;
-
-        using var dialog = new OpenFileDialog
-        {
-            Title = "Импорт карты Logic Arrows",
-            Filter = "Logic Arrows map (*.map)|*.map|Все файлы (*.*)|*.*",
-            DefaultExt = "map",
-            CheckFileExists = true,
-            Multiselect = false,
-            RestoreDirectory = true,
-        };
-        if (dialog.ShowDialog(this) != DialogResult.OK) return;
-
-        try
-        {
-            pendingMapImport = MapFileService.Read(dialog.FileName);
-            headerDetail.Text = $"Карта выбрана: {Path.GetFileName(dialog.FileName)}. Нажми «Играть» для импорта";
-            loadingFile.Text = "Карта будет импортирована после запуска Logic Arrows";
-        }
-        catch (Exception exception)
-        {
-            pendingMapImport = null;
-            MessageBox.Show(this, exception.Message, "Не удалось прочитать .map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
@@ -312,8 +260,6 @@ public sealed class LauncherForm : Form
         isBusy = true;
         playButton.Visible = false;
         playButton.Enabled = false;
-        importMapButton.Visible = false;
-        importMapButton.Enabled = false;
         webView.Visible = false;
         loadingOverlay.Visible = true;
         loadingError.Visible = false;
@@ -389,8 +335,6 @@ public sealed class LauncherForm : Form
         headerDetail.Text = customMessage ?? "Код готов. Нажми «Играть» — вход в игру; Esc — меню игры; F1 — в лаунчер";
         playButton.Visible = true;
         playButton.Enabled = synchronizer?.HasRequiredCache() == true;
-        importMapButton.Visible = true;
-        importMapButton.Enabled = playButton.Enabled;
         CenterLoadingCard();
     }
 
@@ -483,6 +427,14 @@ public sealed class LauncherForm : Form
                     _ = ExportCurrentMapAsync();
                 }
             }
+            else if (root.TryGetProperty("type", out type) && type.GetString() == "import-request")
+            {
+                var text = root.TryGetProperty("text", out var textElement) ? textElement.GetString() : null;
+                if (isGameFullscreen && !lobbyImportInProgress && text is not null)
+                {
+                    _ = ImportFromLobbyAsync(text);
+                }
+            }
             else if (root.TryGetProperty("type", out type) && type.GetString() == "bridge-error")
             {
                 var message = root.TryGetProperty("message", out var value) ? value.GetString() : null;
@@ -495,43 +447,49 @@ public sealed class LauncherForm : Form
         }
     }
 
-    private async Task ImportPendingMapAsync()
+    private async Task ImportFromLobbyAsync(string text)
     {
-        var envelope = pendingMapImport;
-        if (envelope is null || webView.CoreWebView2 is null) return;
-
-        var payload = JsonSerializer.Serialize(new { data = envelope.Data });
-        var script = $"globalThis.__logicArrowsLauncherImport?.({payload})";
-        const int maxAttempts = 20;
-        const int retryDelayMs = 250;
-
-        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        if (lobbyImportInProgress || webView.CoreWebView2 is null) return;
+        lobbyImportInProgress = true;
+        try
         {
-            var response = await webView.CoreWebView2.ExecuteScriptAsync(script);
-            using var document = JsonDocument.Parse(response);
-            var root = document.RootElement;
-            var errorMessage = root.ValueKind == JsonValueKind.Object && root.TryGetProperty("error", out var error)
-                ? error.GetString()
-                : root.ValueKind == JsonValueKind.Object ? null : "Bridge импорта карты недоступен.";
+            var envelope = MapFileService.ReadText(text);
+            var payload = JsonSerializer.Serialize(new { data = envelope.Data });
+            var stageResponse = await webView.CoreWebView2.ExecuteScriptAsync(
+                $"globalThis.__logicArrowsLauncherStageLobbyImport?.({payload}) ?? ({{}})");
+            EnsureBridgeSuccess(stageResponse, "Не удалось подготовить импорт карты.");
 
-            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("ok", out var ok) && ok.ValueKind == JsonValueKind.True)
-            {
-                pendingMapImport = null;
-                loadingFile.Text = "Карта импортирована в Logic Arrows";
-                return;
-            }
-
-            if (!IsImportReadinessError(errorMessage) || attempt == maxAttempts)
-            {
-                throw new InvalidDataException(errorMessage ?? "Импорт карты отклонён игрой.");
-            }
-
-            await Task.Delay(retryDelayMs);
+            var openResponse = await webView.CoreWebView2.ExecuteScriptAsync(
+                "globalThis.__logicArrowsLauncherOpenNewMap?.() ?? ({error:'Кнопка новой карты недоступна.'})");
+            EnsureBridgeSuccess(openResponse, "Не удалось открыть новую карту.");
+        }
+        catch (Exception exception)
+        {
+            try { await NotifyMapPageAsync(exception.Message, true); } catch { }
+        }
+        finally
+        {
+            lobbyImportInProgress = false;
         }
     }
 
-    private static bool IsImportReadinessError(string? message) =>
-        message is "Редактор карты ещё не готов." or "Bridge импорта карты недоступен.";
+    private static void EnsureBridgeSuccess(string response, string fallback)
+    {
+        using var document = JsonDocument.Parse(response);
+        var root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            throw new InvalidDataException(fallback);
+        }
+        if (root.TryGetProperty("error", out var error))
+        {
+            throw new InvalidDataException(error.GetString() ?? fallback);
+        }
+        if (!root.TryGetProperty("ok", out var ok) || ok.ValueKind != JsonValueKind.True)
+        {
+            throw new InvalidDataException(fallback);
+        }
+    }
 
     private async Task ExportCurrentMapAsync()
     {
@@ -794,8 +752,6 @@ public sealed class LauncherForm : Form
         loadingError.Visible = true;
         playButton.Visible = false;
         playButton.Enabled = false;
-        importMapButton.Visible = false;
-        importMapButton.Enabled = false;
         headerTitle.Text = "Logic Arrows Launcher";
         headerDetail.Text = "Запуск остановлен; подробность показана по центру";
         CenterLoadingCard();
