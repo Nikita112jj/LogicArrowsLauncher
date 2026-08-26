@@ -23,6 +23,7 @@ public static class MapBridgeScript
   const THEME_SELECT_ID = 'logic-arrows-launcher-theme-select';
   const THEME_STORAGE_KEY = 'logic-arrows-theme';
   const PATCHED_GAME_KEY = '__logicArrowsLauncherAdaptiveUpdate';
+  const PATCHED_DARK_CANVAS_KEY = '__logicArrowsLauncherDarkCanvasShaderHook';
   const UPDATE_COUNTS = [1, 1, 1, 5, 20, 100];
   const SKIP_COUNTS = [20, 5, 1, 1, 1, 1];
   let pendingLobbyImport = null;
@@ -495,6 +496,57 @@ public static class MapBridgeScript
     else document.documentElement.setAttribute('data-logic-arrows-theme', theme);
   }
 
+  function isDarkTheme() {
+    const theme = readTheme();
+    if (theme === 'dark') return true;
+    if (theme === 'light') return false;
+    return Boolean(globalThis.matchMedia?.('(prefers-color-scheme: dark)')?.matches);
+  }
+
+  function patchDarkCanvasShader(source) {
+    if (!isDarkTheme() || typeof source !== 'string') return source;
+
+    if (
+      source.includes('uniform float u_show_chunk_borders') &&
+      source.includes('out_color = vec4(vec3(color), 1.0);')
+    ) {
+      return source.replace(
+        'out_color = vec4(vec3(color), 1.0);',
+        `vec3 darkField = vec3(0.055, 0.075, 0.11);
+  vec3 darkGrid = vec3(0.20, 0.25, 0.34);
+  float gridLine = step(min(grid.x, grid.y), 0.0);
+  out_color = vec4(mix(darkField, darkGrid, gridLine), 1.0);`,
+      );
+    }
+
+    if (
+      source.includes('uniform sampler2D u_texture') &&
+      source.includes('color.rgb = mix(vec3(0.98), color.rgb, scale);')
+    ) {
+      return source.replace(
+        'color.rgb = mix(vec3(0.98), color.rgb, scale);',
+        'color.rgb = mix(vec3(0.055, 0.075, 0.11), color.rgb, scale);',
+      );
+    }
+
+    return source;
+  }
+
+  function installDarkCanvasShaderHook() {
+    const contexts = [globalThis.WebGL2RenderingContext, globalThis.WebGLRenderingContext];
+    for (const Context of contexts) {
+      const prototype = Context?.prototype;
+      if (!prototype || prototype[PATCHED_DARK_CANVAS_KEY] || typeof prototype.shaderSource !== 'function') continue;
+
+      const originalShaderSource = prototype.shaderSource;
+      const wrappedShaderSource = function (shader, source) {
+        return originalShaderSource.call(this, shader, patchDarkCanvasShader(source));
+      };
+      Object.defineProperty(prototype, PATCHED_DARK_CANVAS_KEY, { value: true });
+      prototype.shaderSource = wrappedShaderSource;
+    }
+  }
+
   function ensureSettingsTheme() {
     if (globalThis.location.pathname !== '/settings') return;
     const main = document.querySelector('.settings-page');
@@ -762,6 +814,7 @@ public static class MapBridgeScript
   }
 
   function syncUi() {
+    installDarkCanvasShaderHook();
     ensureThemeStyle();
     applyTheme();
     patchGamePerformance();
@@ -782,6 +835,7 @@ public static class MapBridgeScript
     syncUi();
   }
 
+  installDarkCanvasShaderHook();
   startObserver();
 })();
 """;
