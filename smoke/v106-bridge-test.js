@@ -207,6 +207,10 @@ assert.match(match[1], /addEventListener\?\.\('blur', clearOfficialKeyboardState
 assert.match(match[1], /addEventListener\?\.\('pagehide', clearOfficialKeyboardState/, 'pagehide clears stale keys');
 assert.match(match[1], /canvas:focus[\s\S]*outline: none !important/, 'canvas keeps keyboard focus without focus outline');
 assert.match(match[1], /canvas:focus[\s\S]*box-shadow: none !important/, 'canvas keeps keyboard focus without focus glow');
+assert.match(match[1], /function patchDarkGridTileShader\(source\)/, 'grid tile shader has a narrow dark patch');
+assert.match(match[1], /mix\(vec3\(0\.98\), color\.rgb, scale\)/, 'grid tile patch targets official white mix');
+assert.match(match[1], /mix\(vec3\(0\.055, 0\.075, 0\.11\), color\.rgb, scale\)/, 'grid tile patch uses dark field color');
+assert.match(match[1], /patchDarkGridTileShader\([\s\S]*patchDarkGridGeneratorShader/, 'grid tile patch runs in shaderSource hook');
 vm.runInNewContext(match[1], sandbox, { filename: 'MapBridgeScript.Source' });
 
 patchedGame.updateFrame();

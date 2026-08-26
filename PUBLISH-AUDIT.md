@@ -2,8 +2,8 @@
 
 | Component | Source / version | License status | Reviewed scope | Integrity | Dependency status | Decision |
 |---|---|---|---|---|---|---|
-| Logic Arrows Launcher | This repository, current working tree, v1.0.7 dark UI polish, toolbar tooltip correction, WebView2 bind-focus recovery, stale-key reset and canvas focus-ring fix | No separate launcher license declared | `src/`, `smoke/`, `assets/`, `tools/`, README, docs, platform folders | Reviewed before publish; no secrets found | `Microsoft.Web.WebView2` 1.0.4129.50 pinned in csproj | PASS |
-| `.map` integration | `src/MapFileService.cs`, `src/MapBridgeScript.cs`, `src/LauncherForm.cs`; v1.0.7 UI-only dark bridge, toolbar tooltip styling and alt-tab bind-focus recovery | Launcher-owned format; embedded Logic Arrows data remains game-owned | JSON envelope validation, Base64 boundary, origin-checked WebView2 message bridge | Round-trip, invalid-format, adaptive TPS/theme, page focus, stale-key reset, canvas focus-ring fix and v1.0.7 UI smoke tests PASS; JS syntax PASS | No new package added | PASS |
+| Logic Arrows Launcher | This repository, current working tree, v1.0.7 dark UI polish, toolbar tooltip correction, WebView2 bind-focus recovery, stale-key reset, canvas focus-ring fix and grid-tile redraw correction | No separate launcher license declared | `src/`, `smoke/`, `assets/`, `tools/`, README, docs, platform folders | Reviewed before publish; no secrets found | `Microsoft.Web.WebView2` 1.0.4129.50 pinned in csproj | PASS |
+| `.map` integration | `src/MapFileService.cs`, `src/MapBridgeScript.cs`, `src/LauncherForm.cs`; v1.0.7 UI-only dark bridge, toolbar tooltip styling and alt-tab bind-focus recovery | Launcher-owned format; embedded Logic Arrows data remains game-owned | JSON envelope validation, Base64 boundary, origin-checked WebView2 message bridge | Round-trip, invalid-format, adaptive TPS/theme, page focus, stale-key reset, canvas focus-ring fix, grid-tile redraw correction and v1.0.7 UI smoke tests PASS; JS syntax PASS | No new package added | PASS |
 | Microsoft.Web.WebView2 | NuGet package `Microsoft.Web.WebView2` 1.0.4129.50 | Registry package metadata; verify upstream terms before redistribution | Used by `src/LogicArrowsLauncher.csproj` | Pinned version | Explicit package version, no floating range | PASS |
 | Logic Arrows runtime resources | `https://logic-arrows.io/`, fetched at launcher runtime | Belong to Logic Arrows правообладатели | Resource allowlist in `src/ResourceCatalog.cs`; downloaded game source is not committed | Origin restricted to `https://logic-arrows.io` | No cookies or tokens copied | PASS |
 | Logic Arrows favicon | `https://logic-arrows.io/res/favicon512.png` | Belongs to Logic Arrows правообладатели | `assets/logic-arrows-favicon.png`, generated `assets/logic-arrows.ico` | Original 512×512 PNG and seven-size ICO reviewed | Static asset included for app branding | PASS |
@@ -11,11 +11,11 @@
 
 ## Release artifact
 
-`LogicArrowsLauncher.exe` is a Windows x64 self-contained single-file publish for v1.0.7 dark UI polish, toolbar tooltip correction, WebView2 bind-focus recovery, stale-key reset and canvas focus-ring fix.
+`LogicArrowsLauncher.exe` is a Windows x64 self-contained single-file publish for v1.0.7 dark UI polish, toolbar tooltip correction, WebView2 bind-focus recovery, stale-key reset, canvas focus-ring fix and grid-tile redraw correction.
 
-SHA-256: `793226684cfc54d18dedee7d18abf3e03fc447c0f3edc32aa175124697e3aa6a`
+SHA-256: `57fd9cea23122bcee62a5008f4265184c0a76e97197d7d19c16298c26be15cd9`
 
-Size: 72,063,930 bytes.
+Size: 72,064,099 bytes.
 
 The Release EXE is generated from the reviewed source. Generated binaries, research captures, local logs and caches are excluded from the source commit and uploaded only as release assets where intended.
 
