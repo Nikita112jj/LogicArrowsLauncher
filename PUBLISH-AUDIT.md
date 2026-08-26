@@ -2,8 +2,8 @@
 
 | Component | Source / version | License status | Reviewed scope | Integrity | Dependency status | Decision |
 |---|---|---|---|---|---|---|
-| Logic Arrows Launcher | This repository, current working tree, v1.0.7 dark UI polish | No separate launcher license declared | `src/`, `smoke/`, `assets/`, `tools/`, README, docs, platform folders | Reviewed before publish; no secrets found | `Microsoft.Web.WebView2` 1.0.4129.50 pinned in csproj | PASS |
-| `.map` integration | `src/MapFileService.cs`, `src/MapBridgeScript.cs`; v1.0.7 UI-only dark bridge | Launcher-owned format; embedded Logic Arrows data remains game-owned | JSON envelope validation, Base64 boundary, origin-checked WebView2 message bridge | Round-trip, invalid-format, adaptive TPS/theme and v1.0.7 UI smoke tests PASS; JS syntax PASS | No new package added | PASS |
+| Logic Arrows Launcher | This repository, current working tree, v1.0.7 dark UI polish and toolbar tooltip correction | No separate launcher license declared | `src/`, `smoke/`, `assets/`, `tools/`, README, docs, platform folders | Reviewed before publish; no secrets found | `Microsoft.Web.WebView2` 1.0.4129.50 pinned in csproj | PASS |
+| `.map` integration | `src/MapFileService.cs`, `src/MapBridgeScript.cs`; v1.0.7 UI-only dark bridge and `.ui-toolbar-item-tooltip` styling | Launcher-owned format; embedded Logic Arrows data remains game-owned | JSON envelope validation, Base64 boundary, origin-checked WebView2 message bridge | Round-trip, invalid-format, adaptive TPS/theme and v1.0.7 UI smoke tests PASS; JS syntax PASS | No new package added | PASS |
 | Microsoft.Web.WebView2 | NuGet package `Microsoft.Web.WebView2` 1.0.4129.50 | Registry package metadata; verify upstream terms before redistribution | Used by `src/LogicArrowsLauncher.csproj` | Pinned version | Explicit package version, no floating range | PASS |
 | Logic Arrows runtime resources | `https://logic-arrows.io/`, fetched at launcher runtime | Belong to Logic Arrows правообладатели | Resource allowlist in `src/ResourceCatalog.cs`; downloaded game source is not committed | Origin restricted to `https://logic-arrows.io` | No cookies or tokens copied | PASS |
 | Logic Arrows favicon | `https://logic-arrows.io/res/favicon512.png` | Belongs to Logic Arrows правообладатели | `assets/logic-arrows-favicon.png`, generated `assets/logic-arrows.ico` | Original 512×512 PNG and seven-size ICO reviewed | Static asset included for app branding | PASS |
@@ -11,11 +11,11 @@
 
 ## Release artifact
 
-`LogicArrowsLauncher.exe` is a Windows x64 self-contained single-file publish for v1.0.7 dark UI polish.
+`LogicArrowsLauncher.exe` is a Windows x64 self-contained single-file publish for v1.0.7 dark UI polish and toolbar tooltip correction.
 
-SHA-256: `30e052229191c8db79c3ba255a8293f4386e9c51572abe1c64cfba3a52d0bd9d`
+SHA-256: `f303c77559aef369df83ad958730f77033259a0e69f0951ce485d0879ef6cc9f`
 
-Size: 72,062,124 bytes.
+Size: 72,062,311 bytes.
 
 The Release EXE is generated from the reviewed source. Generated binaries, research captures, local logs and caches are excluded from the source commit and uploaded only as release assets where intended.
 

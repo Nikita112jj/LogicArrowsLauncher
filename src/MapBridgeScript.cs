@@ -549,6 +549,30 @@ public static class MapBridgeScript
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='m3.2 5.2 3.8 3.8 3.8-3.8' fill='none' stroke='%23e8edf7' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
     }
+    html[data-logic-arrows-dark-ui='1'] .ui-toolbar-item-tooltip {
+      background-color: var(--logic-game-panel) !important;
+      color: var(--logic-game-ink) !important;
+      border: 1px solid var(--logic-border) !important;
+      border-radius: 1rem !important;
+      box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.34) !important;
+    }
+    html[data-logic-arrows-dark-ui='1'] .ui-toolbar-item-tooltip * {
+      background-color: transparent !important;
+      color: inherit !important;
+      opacity: 1 !important;
+      text-shadow: none !important;
+    }
+    html[data-logic-arrows-dark-ui='1'] .ui-toolbar-item-tooltip .inline-key,
+    html[data-logic-arrows-dark-ui='1'] .ui-toolbar-item-tooltip .inline-key-blue,
+    html[data-logic-arrows-dark-ui='1'] .ui-toolbar-item-tooltip .inline-icon-blue {
+      background-color: #1d2a3d !important;
+      color: #f3f6ff !important;
+    }
+    html[data-logic-arrows-theme='light'] .ui-toolbar-item-tooltip {
+      background-color: #ffffff !important;
+      color: #333333 !important;
+      border: 1px solid #d2d8e2 !important;
+    }
     html[data-logic-arrows-dark-ui='1'] .ui-arrow-info {
       background-color: var(--logic-game-panel) !important;
       color: var(--logic-game-ink) !important;
