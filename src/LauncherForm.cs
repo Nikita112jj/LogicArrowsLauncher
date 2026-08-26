@@ -134,7 +134,7 @@ public sealed class LauncherForm : Form
         headerText.Controls.Add(headerDetail);
 
         ConfigureHeaderButton(githubButton, "GitHub", new Size(112, 38), Color.FromArgb(48, 59, 82));
-        githubButton.Image = LauncherIcons.CreateGitHub(18, Color.White);
+        githubButton.Image = LoadEmbeddedImage("LogicArrowsLauncher.github-invertocat-white.png");
         githubButton.ImageAlign = ContentAlignment.MiddleLeft;
         githubButton.TextImageRelation = TextImageRelation.ImageBeforeText;
         githubButton.Padding = new Padding(10, 0, 10, 0);
@@ -835,6 +835,14 @@ public sealed class LauncherForm : Form
         CenterLoadingCard();
     }
 
+    private static Image? LoadEmbeddedImage(string resourceName)
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
+        if (stream is null) return null;
+        using var source = Image.FromStream(stream);
+        return new Bitmap(source);
+    }
+
     private void OpenExternalUrl(string url)
     {
         try
@@ -880,6 +888,7 @@ public sealed class LauncherForm : Form
                 webView.CoreWebView2.WebMessageReceived -= WebMessageReceivedHandler;
             }
             synchronizer?.Dispose();
+            githubButton.Image?.Dispose();
             webView.Dispose();
         }
         base.Dispose(disposing);

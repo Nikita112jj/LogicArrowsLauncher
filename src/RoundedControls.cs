@@ -158,34 +158,3 @@ public sealed class RoundedProgressBar : Control
         e.Graphics.FillPath(fillBrush, fillPath);
     }
 }
-
-internal static class LauncherIcons
-{
-    public static Bitmap CreateGitHub(int size, Color color)
-    {
-        var bitmap = new Bitmap(size, size);
-        using var graphics = Graphics.FromImage(bitmap);
-        graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        graphics.Clear(Color.Transparent);
-        using var brush = new SolidBrush(color);
-        var head = new RectangleF(size * 0.2f, size * 0.19f, size * 0.6f, size * 0.54f);
-        graphics.FillEllipse(brush, head);
-        graphics.FillPolygon(brush, new[]
-        {
-            new PointF(size * 0.22f, size * 0.31f),
-            new PointF(size * 0.04f, size * 0.17f),
-            new PointF(size * 0.14f, size * 0.52f),
-        });
-        graphics.FillPolygon(brush, new[]
-        {
-            new PointF(size * 0.78f, size * 0.31f),
-            new PointF(size * 0.96f, size * 0.17f),
-            new PointF(size * 0.86f, size * 0.52f),
-        });
-        graphics.FillEllipse(brush, new RectangleF(size * 0.28f, size * 0.62f, size * 0.44f, size * 0.3f));
-        using var cutout = new SolidBrush(Color.FromArgb(31, 36, 52));
-        graphics.FillEllipse(cutout, new RectangleF(size * 0.35f, size * 0.34f, size * 0.1f, size * 0.1f));
-        graphics.FillEllipse(cutout, new RectangleF(size * 0.55f, size * 0.34f, size * 0.1f, size * 0.1f));
-        return bitmap;
-    }
-}

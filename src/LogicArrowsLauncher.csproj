@@ -29,6 +29,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="../assets/github/github-invertocat-white.png" LogicalName="LogicArrowsLauncher.github-invertocat-white.png" />
     <RuntimeHostConfigurationOption Include="System.Globalization.Invariant" Value="false" />
     <RuntimeHostConfigurationOption Include="System.Globalization.PredefinedCulturesOnly" Value="false" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4129.50" />

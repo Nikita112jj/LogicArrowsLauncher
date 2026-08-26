@@ -224,7 +224,7 @@ assert.deepEqual(clearCalls, [
   ['target', gameRender.mainRenderTexture],
   ['clear', 0.055, 0.075, 0.11, 1],
   ['target', gameRender.gridRenderTexture],
-  ['clear', 1, 1, 1, 1],
+  ['clear', 0, 0, 0, 0],
   ['target', null],
 ], 'dark theme clears only the arrow background dark and keeps grid layer white');
 
@@ -248,6 +248,11 @@ assert.match(shaderSourceCalls[0], /vec4\(0\.3, 0\.5, 1\.0, 1\.0\)/, 'blue signa
 storage.set('logic-arrows-theme', 'light');
 fakeContext.shaderSource({}, selectionArrowShader);
 assert.match(shaderSourceCalls[2], /vec4\(1\.0, 1\.0, 1\.0, 0\.0\)/, 'light theme keeps official selection-cell background');
+
+storage.set('logic-arrows-theme', 'dark');
+const gridGeneratorShader = `uniform float u_show_chunk_borders; out vec4 out_color; void main() { vec2 grid = fract(vec2(1.0)); float color = 1.0; out_color = vec4(vec3(color), 1.0); }`;
+fakeContext.shaderSource({}, gridGeneratorShader);
+assert.match(shaderSourceCalls[3], /vec3\(1\.0\), gridLine/, 'dark grid uses white lines with transparent empty cells');
 
 console.log(`adaptive_ticks=${highLevelTicks}`);
 console.log('low_tps_official_path=True');

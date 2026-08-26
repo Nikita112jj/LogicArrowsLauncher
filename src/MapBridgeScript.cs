@@ -25,6 +25,7 @@ public static class MapBridgeScript
   const PATCHED_GAME_KEY = '__logicArrowsLauncherAdaptiveUpdate';
   const PATCHED_DARK_RENDER_KEY = '__logicArrowsLauncherDarkRenderClear';
   const PATCHED_DARK_ARROW_KEY = '__logicArrowsLauncherDarkArrowCell';
+  const PATCHED_DARK_GRID_KEY = '__logicArrowsLauncherDarkGrid';
   const UPDATE_COUNTS = [1, 1, 1, 5, 20, 100];
   const SKIP_COUNTS = [20, 5, 1, 1, 1, 1];
   let pendingLobbyImport = null;
@@ -516,6 +517,20 @@ public static class MapBridgeScript
       .replace('vec4(1.0, 1.0, 1.0, 1.0)', 'vec4(0.055, 0.075, 0.11, 1.0)');
   }
 
+  function patchDarkGridGeneratorShader(source) {
+    if (!isDarkTheme() || typeof source !== 'string') return source;
+    if (
+      !source.includes('uniform float u_show_chunk_borders') ||
+      !source.includes('out_color = vec4(vec3(color), 1.0);')
+    ) return source;
+
+    return source.replace(
+      'out_color = vec4(vec3(color), 1.0);',
+      `float gridLine = step(min(grid.x, grid.y), 0.0);
+  out_color = vec4(vec3(1.0), gridLine);`,
+    );
+  }
+
   function installDarkArrowCellShaderHook() {
     const contexts = [globalThis.WebGL2RenderingContext, globalThis.WebGLRenderingContext];
     for (const Context of contexts) {
@@ -524,11 +539,48 @@ public static class MapBridgeScript
 
       const originalShaderSource = prototype.shaderSource;
       const wrappedShaderSource = function (shader, source) {
-        return originalShaderSource.call(this, shader, patchDarkArrowCellShader(source));
+        return originalShaderSource.call(
+          this,
+          shader,
+          patchDarkGridGeneratorShader(patchDarkArrowCellShader(source)),
+        );
       };
       Object.defineProperty(prototype, PATCHED_DARK_ARROW_KEY, { value: true });
       prototype.shaderSource = wrappedShaderSource;
     }
+  }
+
+  function patchDarkGridComposite() {
+    const gamePage = findGamePage(globalThis.game);
+    const gameRender = gamePage?.game?.render;
+    if (
+      !gameRender ||
+      typeof gameRender.drawGridRenderTexture !== 'function' ||
+      gameRender[PATCHED_DARK_GRID_KEY]
+    ) return;
+
+    const originalDrawGridRenderTexture = gameRender.drawGridRenderTexture;
+    gameRender.drawGridRenderTexture = function () {
+      if (
+        !isDarkTheme() ||
+        !this.fullscreenShader ||
+        !this.gridRenderTexture ||
+        !this.render ||
+        typeof this.render.setShader !== 'function' ||
+        typeof this.render.setTexture !== 'function' ||
+        typeof this.render.setBlendMode !== 'function' ||
+        typeof this.render.drawQuad !== 'function'
+      ) {
+        return originalDrawGridRenderTexture.call(this);
+      }
+
+      this.render.setShader(this.fullscreenShader);
+      this.render.setTexture(this.gridRenderTexture);
+      this.render.setBlendMode('alpha');
+      this.render.drawQuad();
+      this.render.setBlendMode('alpha');
+    };
+    Object.defineProperty(gameRender, PATCHED_DARK_GRID_KEY, { value: true });
   }
 
   function patchDarkRenderClear() {
@@ -557,7 +609,7 @@ public static class MapBridgeScript
       this.render.setRenderTarget(this.mainRenderTexture);
       this.render.clear(0.055, 0.075, 0.11, 1);
       this.render.setRenderTarget(this.gridRenderTexture);
-      this.render.clear(1, 1, 1, 1);
+      this.render.clear(0, 0, 0, 0);
       this.render.setRenderTarget(null);
     };
     Object.defineProperty(gameRender, PATCHED_DARK_RENDER_KEY, { value: true });
@@ -831,6 +883,7 @@ public static class MapBridgeScript
 
   function syncUi() {
     installDarkArrowCellShaderHook();
+    patchDarkGridComposite();
     patchDarkRenderClear();
     ensureThemeStyle();
     applyTheme();
@@ -853,6 +906,7 @@ public static class MapBridgeScript
   }
 
   installDarkArrowCellShaderHook();
+  patchDarkGridComposite();
   patchDarkRenderClear();
   startObserver();
 })();
