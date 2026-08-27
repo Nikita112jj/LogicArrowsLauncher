@@ -209,6 +209,8 @@ assert.match(match[1], /function patchDarkGridTileShader\(source\)/, 'dark grid 
 assert.match(match[1], /mix\(vec3\(0\.98\), color\.rgb, scale\)/, 'grid tile patch targets the official white base');
 assert.match(match[1], /mix\(vec3\(0\.055, 0\.075, 0\.11\), color\.rgb, scale\)/, 'grid tile patch uses the dark field color');
 assert.match(match[1], /patchDarkGridTileShader\([\s\S]*patchDarkGridGeneratorShader/, 'grid tile patch is applied in shaderSource hook');
+assert.doesNotMatch(match[1], /patchDarkGridComposite/, 'official grid composite path is preserved');
+assert.doesNotMatch(match[1], /drawGridRenderTexture = function/, 'grid composite is not replaced with an alpha override');
 vm.runInNewContext(match[1], sandbox, { filename: 'MapBridgeScript.Source' });
 
 patchedGame.updateFrame();
