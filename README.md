@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/Nikita112jj/LogicArrowsLauncher/releases/latest"><img src="https://img.shields.io/badge/Скачать-актуальный%20релиз-2f8f4e?style=for-the-badge" alt="Скачать последний релиз"></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Версия-1.0.9-7d5cff?style=for-the-badge" alt="Версия 1.0.9"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Версия-1.1.0-7d5cff?style=for-the-badge" alt="Версия 1.1.0"></a>
   <img src="https://img.shields.io/badge/Windows-x64-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows x64">
   <img src="https://img.shields.io/badge/.NET-8-512BD4?style=for-the-badge&logo=dotnet&logoColor=white" alt=".NET 8">
 </p>
@@ -24,11 +24,11 @@
 
 | Платформа | Скачать / открыть | Что внутри |
 |---|---|---|
-| **Windows x64** | [Скачать LogicArrowsLauncher.exe](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/download/v1.0.9/LogicArrowsLauncher.exe) | Готовый self-contained EXE |
+| **Windows x64** | [Скачать LogicArrowsLauncher.exe](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/download/v1.1.0/LogicArrowsLauncher.exe) | Готовый self-contained EXE |
 | **Linux** | [Открыть Linux source](linux/README.md) | Исходники и план GTK/Avalonia/Qt WebEngine-порта |
 | **macOS** | [Открыть macOS source](mac/README.md) | Исходники и план Avalonia/WKWebView-порта |
 
-Также можно открыть [полный релиз v1.0.9](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.9), где лежат EXE, ICO и официальная PNG-иконка игры.
+Также можно открыть [полный релиз v1.1.0](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.1.0), где лежат EXE, ICO и официальная PNG-иконка игры.
 
 ## Что умеет лаунчер
 
@@ -43,11 +43,15 @@
 - Поддерживает fullscreen через WebView2: **F11** показывает или скрывает стандартную Windows-рамку окна, не уменьшая игру.
 - Использует официальную favicon Logic Arrows в EXE, заголовке окна и на панели задач.
 - В launcher есть прямая кнопка **GitHub** с официальным Invertocat mark из GitHub Brand Toolkit и кнопка **Changelog** для текущего release.
-- Импортирует собственные `.map`-файлы из вкладки **«Карты»** игрового лобби через стандартный выбор файла Windows.
+- **Импортирует карты как из локальных `.map`-файлов, так и по публичному ID или ссылке** (например, `map-6ugjRgZm` или `https://logic-arrows.io/map-6ugjRgZm`) прямо через встроенное диалоговое окно в лобби игры.
 - Экспортирует открытую карту кнопкой **«Экспорт .map»** в штатных настройках карты.
 - При высоком TPS распределяет тики больших механизмов по небольшому бюджету кадра, чтобы не блокировать отрисовку.
 - Добавляет в настройки аккуратный пункт **«Тема: Системная / Тёмная / Светлая»** с применением сразу и сохранением выбора.
 - Проверяет формат, версию `1_4`, размер и Base64 до передачи карты в официальный runtime игры.
+
+## v1.1.0
+
+В v1.1.0 добавлена возможность импорта любых публичных карт по их ID или веб-ссылке (например: `map-6ugjRgZm`, `6ugjRgZm` или полная ссылка `https://logic-arrows.io/map-6ugjRgZm`). При нажатии на карточку импорта в лобби открывается удобное окно, где можно выбрать: загрузить карту из облака по ID/URL либо выбрать локальный `.map`-файл с диска.
 
 ## v1.0.9
 

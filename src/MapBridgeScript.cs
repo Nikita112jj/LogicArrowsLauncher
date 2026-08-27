@@ -1402,11 +1402,11 @@ public static class MapBridgeScript
 
     const title = document.createElement('div');
     title.className = 'ui-maps-menu-item-name';
-    title.textContent = 'Импорт .map';
+    title.textContent = 'Импорт карты';
 
     const status = document.createElement('div');
     status.id = IMPORT_STATUS_ID;
-    status.textContent = 'Выбрать файл';
+    status.textContent = 'Файл .map или ID';
     status.style.fontFamily = 'var(--font)';
     status.style.fontSize = '0.95em';
     status.style.color = '#777';
@@ -1419,15 +1419,143 @@ public static class MapBridgeScript
     input.accept = '.map,application/json';
     input.hidden = true;
 
-    const chooseFile = () => {
+    const openImportModal = () => {
       if (card.dataset.busy === '1') return;
-      input.click();
+      const existing = document.getElementById('logic-arrows-import-modal');
+      if (existing) { existing.remove(); return; }
+
+      const modalOverlay = document.createElement('div');
+      modalOverlay.id = 'logic-arrows-import-modal';
+      modalOverlay.style.position = 'fixed';
+      modalOverlay.style.inset = '0';
+      modalOverlay.style.background = 'rgba(0, 0, 0, 0.72)';
+      modalOverlay.style.display = 'flex';
+      modalOverlay.style.alignItems = 'center';
+      modalOverlay.style.justifyContent = 'center';
+      modalOverlay.style.zIndex = '999999';
+      modalOverlay.style.backdropFilter = 'blur(4px)';
+
+      const modalBox = document.createElement('div');
+      modalBox.style.background = 'var(--logic-game-panel, #182232)';
+      modalBox.style.color = 'var(--logic-game-ink, #f0f4fc)';
+      modalBox.style.border = '1px solid var(--logic-border, #32435f)';
+      modalBox.style.borderRadius = '1rem';
+      modalBox.style.padding = '1.75rem';
+      modalBox.style.maxWidth = '460px';
+      modalBox.style.width = '90%';
+      modalBox.style.boxShadow = '0 1rem 3rem rgba(0, 0, 0, 0.6)';
+      modalBox.style.display = 'flex';
+      modalBox.style.flexDirection = 'column';
+      modalBox.style.gap = '1rem';
+      modalBox.style.boxSizing = 'border-box';
+
+      const modalTitle = document.createElement('div');
+      modalTitle.style.fontSize = '1.25rem';
+      modalTitle.style.fontWeight = 'bold';
+      modalTitle.textContent = 'Импорт карты в игру';
+
+      const modalSub = document.createElement('div');
+      modalSub.style.fontSize = '0.9rem';
+      modalSub.style.color = 'var(--logic-game-muted, #8ea0be)';
+      modalSub.textContent = 'Введите ID публичной карты (например: map-6ugjRgZm) или выберите локальный .map-файл.';
+
+      const idInput = document.createElement('input');
+      idInput.type = 'text';
+      idInput.placeholder = 'ID или ссылка (map-6ugjRgZm)';
+      idInput.style.padding = '0.65rem 0.85rem';
+      idInput.style.borderRadius = '0.5rem';
+      idInput.style.border = '1px solid var(--logic-border, #32435f)';
+      idInput.style.background = 'var(--logic-game-panel-strong, #121a27)';
+      idInput.style.color = 'var(--logic-game-ink, #f0f4fc)';
+      idInput.style.fontFamily = 'inherit';
+      idInput.style.fontSize = '1rem';
+      idInput.style.outline = 'none';
+
+      const btnCloud = document.createElement('button');
+      btnCloud.textContent = '🌐 Загрузить по ID / ссылке';
+      btnCloud.style.padding = '0.65rem 1rem';
+      btnCloud.style.borderRadius = '0.5rem';
+      btnCloud.style.border = 'none';
+      btnCloud.style.background = '#2563eb';
+      btnCloud.style.color = '#fff';
+      btnCloud.style.fontWeight = 'bold';
+      btnCloud.style.fontSize = '0.95rem';
+      btnCloud.style.cursor = 'pointer';
+
+      const btnFile = document.createElement('button');
+      btnFile.textContent = '📁 Выбрать файл с ПК (.map)';
+      btnFile.style.padding = '0.65rem 1rem';
+      btnFile.style.borderRadius = '0.5rem';
+      btnFile.style.border = '1px solid var(--logic-border, #32435f)';
+      btnFile.style.background = 'transparent';
+      btnFile.style.color = 'var(--logic-game-ink, #f0f4fc)';
+      btnFile.style.fontWeight = 'bold';
+      btnFile.style.fontSize = '0.95rem';
+      btnFile.style.cursor = 'pointer';
+
+      const btnClose = document.createElement('button');
+      btnClose.textContent = 'Отмена';
+      btnClose.style.padding = '0.5rem 1rem';
+      btnClose.style.borderRadius = '0.5rem';
+      btnClose.style.border = 'none';
+      btnClose.style.background = 'transparent';
+      btnClose.style.color = 'var(--logic-game-muted, #8ea0be)';
+      btnClose.style.cursor = 'pointer';
+
+      const handleCloudImport = async () => {
+        const raw = idInput.value.trim();
+        const cleanId = raw.replace(/^https?:\/\/[^/]+\/(?:map-)?/, '').replace(/^map-/, '').replace(/[?#].*$/, '').trim();
+        if (!cleanId) {
+          idInput.focus();
+          return;
+        }
+        card.dataset.busy = '1';
+        setImportStatus('Загружаю карту ' + cleanId + '…');
+        modalOverlay.remove();
+        try {
+          const res = await fetch('/api/mapguest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: cleanId })
+          });
+          if (!res.ok) throw new Error('Сервер вернул статус ' + res.status);
+          const json = await res.json();
+          if (!json || !json.data) throw new Error('Карта не найдена или не является публичной.');
+          stageLobbyImport({ data: json.data });
+          globalThis.__logicArrowsLauncherOpenNewMap?.();
+        } catch (error) {
+          card.dataset.busy = '0';
+          setImportStatus(String(error?.message || error), true);
+        }
+      };
+
+      btnCloud.addEventListener('click', handleCloudImport);
+      idInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); handleCloudImport(); }
+        if (e.key === 'Escape') { modalOverlay.remove(); }
+      });
+
+      btnFile.addEventListener('click', () => {
+        modalOverlay.remove();
+        input.click();
+      });
+
+      btnClose.addEventListener('click', () => modalOverlay.remove());
+      modalOverlay.addEventListener('click', (e) => {
+        if (e.target === modalOverlay) modalOverlay.remove();
+      });
+
+      modalBox.append(modalTitle, modalSub, idInput, btnCloud, btnFile, btnClose);
+      modalOverlay.append(modalBox);
+      document.body.append(modalOverlay);
+      setTimeout(() => idInput.focus(), 50);
     };
-    card.addEventListener('click', chooseFile);
+
+    card.addEventListener('click', openImportModal);
     card.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        chooseFile();
+        openImportModal();
       }
     });
     input.addEventListener('change', async () => {

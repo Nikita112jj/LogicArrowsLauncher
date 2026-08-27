@@ -85,7 +85,14 @@ public static class MapFileService
     {
         if (!string.Equals(envelope.Format, MapFileEnvelope.ExpectedFormat, StringComparison.Ordinal))
         {
-            throw new InvalidDataException("Это не файл Logic Arrows .map.");
+            if (string.IsNullOrWhiteSpace(envelope.Format) && !string.IsNullOrWhiteSpace(envelope.Data))
+            {
+                // Allow raw API / api/mapguest JSON
+            }
+            else
+            {
+                throw new InvalidDataException("Это не файл Logic Arrows .map.");
+            }
         }
         if (envelope.FormatVersion != MapFileEnvelope.ExpectedFormatVersion)
         {

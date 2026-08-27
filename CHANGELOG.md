@@ -2,6 +2,14 @@
 
 Все заметные изменения Logic Arrows Launcher собраны в этом файле.
 
+## [1.1.0] — public map import & modal
+
+### Добавлено
+
+- **Импорт карт по ID и ссылке**: добавлено новое диалоговое окно импорта в лобби («Карты» → «Импорт карты»), позволяющее загружать любые публичные миры напрямую с сервера игры по их ID (например, `map-6ugjRgZm` или `6ugjRgZm`) или полному URL (`https://logic-arrows.io/map-6ugjRgZm`).
+- Поддержка быстрого выбора между загрузкой из облака и выбором локального файла `.map` с компьютера.
+- Поддержка чтения сырых ответов игрового API в сервисе импорта карт.
+
 ## [1.0.9] — dark theme signal fix
 
 ### Исправлено
@@ -86,6 +94,7 @@
 - Официальная favicon Logic Arrows в EXE, README и Releases.
 - F11/Esc fullscreen-логика предыдущего выпуска.
 
+[1.1.0]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.1.0
 [1.0.9]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.9
 [1.0.7]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.7
 [1.0.6]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.6

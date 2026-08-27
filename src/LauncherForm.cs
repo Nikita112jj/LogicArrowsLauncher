@@ -14,7 +14,7 @@ public sealed class LauncherForm : Form
     private const int WM_SETFOCUS = 0x0007;
     private const int WM_ACTIVATEAPP = 0x001C;
     private const string RepositoryUrl = "https://github.com/Nikita112jj/LogicArrowsLauncher";
-    private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.0.9";
+    private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.1.0";
 
     private readonly RoundedPanel header = new();
     private readonly Label headerTitle = new();
@@ -261,7 +261,7 @@ public sealed class LauncherForm : Form
         loadingVersion.Font = new Font("Segoe UI", 8.5F);
         loadingVersion.TextAlign = ContentAlignment.MiddleCenter;
         loadingVersion.Bounds = new Rectangle(30, 449, 590, 24);
-        loadingVersion.Text = "v1.0.9  •  Windows x64  •  self-contained";
+        loadingVersion.Text = "v1.1.0  •  Windows x64  •  self-contained";
 
         loadingCard.Controls.Add(loadingKicker);
         loadingCard.Controls.Add(loadingTitle);
