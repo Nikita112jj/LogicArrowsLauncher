@@ -892,10 +892,25 @@ public static class MapBridgeScript
     ) return source;
 
     return source
-      .replace('vec4(1.0, 1.0, 1.0, 0.0)', 'vec4(0.14, 0.16, 0.20, 0.0)')
-      .replace('vec4(1.0, 1.0, 1.0, 1.0)', 'vec4(0.14, 0.16, 0.20, 1.0)')
-      .replace('vec3 base = color.rgb + signal_colors[u_signal].rgb * (1.0 - color.a)', 'vec3 base = color.rgb * color.a + signal_colors[u_signal].rgb * (1.0 - color.a)')
-      .replace('vec3 base = color.rgb + signal_colors[signal_index].rgb * (1.0 - color.a)', 'vec3 base = color.rgb * color.a + signal_colors[signal_index].rgb * (1.0 - color.a)');
+      // chunk: stop forcing the whole cell opaque so the grid shows through
+      .replace(
+        'alpha = max(alpha, signal_colors[signal_index].a);',
+        'alpha = color.a * u_alpha;'
+      )
+      // arrow: only the glyph gets the far-zoom opacity boost, not the cell
+      .replace(
+        'alpha = mix(alpha, 0.75, scale);',
+        'alpha = color.a * mix(u_alpha, 0.75, scale);'
+      )
+      // tint the glyph by its signal color instead of filling the cell
+      .replace(
+        'vec3 base = color.rgb + signal_colors[u_signal].rgb * (1.0 - color.a)',
+        'vec3 base = color.rgb * mix(vec3(1.0), signal_colors[u_signal].rgb, 0.9);'
+      )
+      .replace(
+        'vec3 base = color.rgb + signal_colors[signal_index].rgb * (1.0 - color.a)',
+        'vec3 base = color.rgb * mix(vec3(1.0), signal_colors[signal_index].rgb, 0.9);'
+      );
   }
 
   function patchDarkGridGeneratorShader(source) {
