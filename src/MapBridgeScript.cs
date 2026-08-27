@@ -881,10 +881,17 @@ public static class MapBridgeScript
       !source.includes('vec3 base = color.rgb + signal_colors')
     ) return source;
 
-    return source
-      .replace('vec4(1.0, 1.0, 1.0, 0.0)', 'vec4(0.055, 0.075, 0.11, 0.0)')
-      .replace('vec4(1.0, 1.0, 1.0, 1.0)', 'vec4(0.055, 0.075, 0.11, 1.0)')
-      .replace(/float alpha = color\.a \* u_alpha;\s*alpha = mix\(alpha, 0\.75, scale\);/, 'float alpha = color.a * u_alpha;');
+    const isChunkArrowShader = source.includes('in float v_signal') && source.includes('signal_index');
+    let patched = source;
+    if (isChunkArrowShader) {
+      patched = patched
+        .replace('vec4(1.0, 1.0, 1.0, 0.0)', 'vec4(0.055, 0.075, 0.11, 0.0)')
+        .replace('vec4(1.0, 1.0, 1.0, 1.0)', 'vec4(0.055, 0.075, 0.11, 1.0)');
+    }
+    return patched.replace(
+      /float alpha = color\.a \* u_alpha;\s*alpha = mix\(alpha, 0\.75, scale\);/,
+      'float alpha = color.a * u_alpha;',
+    );
   }
 
   function patchDarkGridGeneratorShader(source) {
