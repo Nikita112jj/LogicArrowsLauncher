@@ -25,6 +25,8 @@ public static class MapBridgeScript
   const PATCHED_GAME_KEY = '__logicArrowsLauncherAdaptiveUpdate';
   const PATCHED_DARK_RENDER_KEY = '__logicArrowsLauncherDarkRenderClear';
   const PATCHED_DARK_ARROW_KEY = '__logicArrowsLauncherDarkArrowCell';
+  const PATCHED_DARK_GRID_KEY = '__logicArrowsLauncherDarkGrid';
+  const PATCHED_DARK_GRID_TILE_KEY = '__logicArrowsLauncherDarkGridTile';
   const PATCHED_FOCUS_RECOVERY_KEY = '__logicArrowsLauncherFocusRecovery';
   const UPDATE_COUNTS = [1, 1, 1, 5, 20, 100];
   const SKIP_COUNTS = [20, 5, 1, 1, 1, 1];
@@ -169,6 +171,16 @@ public static class MapBridgeScript
       background-color: var(--logic-background);
       color: var(--logic-ink);
       transition: background-color 180ms ease, color 180ms ease;
+    }
+    .ui-game-view canvas:focus,
+    .ui-game-view canvas:focus-visible,
+    .ui-game-view-canvas:focus,
+    .ui-game-view-canvas:focus-visible,
+    canvas.cnv:focus,
+    canvas.cnv:focus-visible {
+      outline: none !important;
+      box-shadow: none !important;
+      -webkit-tap-highlight-color: transparent !important;
     }
     #logic-arrows-launcher-settings-heading {
       margin: clamp(24px, 5vh, 56px) 0 0 clamp(24px, 10vw, 140px);
@@ -880,17 +892,11 @@ public static class MapBridgeScript
       !source.includes('vec3 base = color.rgb + signal_colors')
     ) return source;
 
-    const isChunkArrowShader = source.includes('in float v_signal') && source.includes('signal_index');
-    let patched = source;
-    if (isChunkArrowShader) {
-      patched = patched
-        .replace('vec4(1.0, 1.0, 1.0, 0.0)', 'vec4(0.055, 0.075, 0.11, 0.0)')
-        .replace('vec4(1.0, 1.0, 1.0, 1.0)', 'vec4(0.055, 0.075, 0.11, 1.0)');
-    }
-    return patched.replace(
-      /float alpha = color\.a \* u_alpha;\s*alpha = mix\(alpha, 0\.75, scale\);/,
-      'float alpha = color.a * u_alpha;',
-    );
+    return source
+      .replace('vec4(1.0, 1.0, 1.0, 0.0)', 'vec4(0.055, 0.075, 0.11, 0.0)')
+      .replace('vec4(1.0, 1.0, 1.0, 1.0)', 'vec4(0.055, 0.075, 0.11, 1.0)')
+      .replace('vec3 base = color.rgb + signal_colors[u_signal].rgb * (1.0 - color.a)', 'vec3 base = color.rgb * color.a + signal_colors[u_signal].rgb * (1.0 - color.a)')
+      .replace('vec3 base = color.rgb + signal_colors[signal_index].rgb * (1.0 - color.a)', 'vec3 base = color.rgb * color.a + signal_colors[signal_index].rgb * (1.0 - color.a)');
   }
 
   function patchDarkGridGeneratorShader(source) {
@@ -903,7 +909,9 @@ public static class MapBridgeScript
     return source.replace(
       'out_color = vec4(vec3(color), 1.0);',
       `float gridLine = step(min(grid.x, grid.y), 0.0);
-  out_color = vec4(vec3(0.44), gridLine);`,
+  vec3 bg = vec3(0.055, 0.075, 0.11);
+  vec3 line = vec3(0.165, 0.185, 0.23);
+  out_color = vec4(mix(bg, line, gridLine), 1.0);`,
     );
   }
 
@@ -941,6 +949,38 @@ public static class MapBridgeScript
     }
   }
 
+  function patchDarkGridComposite() {
+    const gamePage = findGamePage(globalThis.game);
+    const gameRender = gamePage?.game?.render;
+    if (
+      !gameRender ||
+      typeof gameRender.drawGridRenderTexture !== 'function' ||
+      gameRender[PATCHED_DARK_GRID_KEY]
+    ) return;
+
+    const originalDrawGridRenderTexture = gameRender.drawGridRenderTexture;
+    gameRender.drawGridRenderTexture = function () {
+      if (
+        !isDarkTheme() ||
+        !this.fullscreenShader ||
+        !this.gridRenderTexture ||
+        !this.render ||
+        typeof this.render.setShader !== 'function' ||
+        typeof this.render.setTexture !== 'function' ||
+        typeof this.render.setBlendMode !== 'function' ||
+        typeof this.render.drawQuad !== 'function'
+      ) {
+        return originalDrawGridRenderTexture.call(this);
+      }
+
+      this.render.setShader(this.fullscreenShader);
+      this.render.setTexture(this.gridRenderTexture);
+      this.render.setBlendMode('alpha');
+      this.render.drawQuad();
+      this.render.setBlendMode('alpha');
+    };
+    Object.defineProperty(gameRender, PATCHED_DARK_GRID_KEY, { value: true });
+  }
 
   function patchDarkRenderClear() {
     const gamePage = findGamePage(globalThis.game);
@@ -968,7 +1008,7 @@ public static class MapBridgeScript
       this.render.setRenderTarget(this.mainRenderTexture);
       this.render.clear(0.055, 0.075, 0.11, 1);
       this.render.setRenderTarget(this.gridRenderTexture);
-      this.render.clear(0, 0, 0, 0);
+      this.render.clear(0.055, 0.075, 0.11, 1);
       this.render.setRenderTarget(null);
     };
     Object.defineProperty(gameRender, PATCHED_DARK_RENDER_KEY, { value: true });
@@ -1379,6 +1419,7 @@ public static class MapBridgeScript
   function syncUi() {
     installGameFocusRecovery();
     installDarkArrowCellShaderHook();
+    patchDarkGridComposite();
     patchDarkRenderClear();
     ensureThemeStyle();
     applyTheme();
@@ -1402,6 +1443,7 @@ public static class MapBridgeScript
   }
 
   installDarkArrowCellShaderHook();
+  patchDarkGridComposite();
   patchDarkRenderClear();
   startObserver();
 })();
