@@ -990,20 +990,37 @@ public static class MapBridgeScript
       if (!this.render || !this.render.isReady()) return;
       const e = this.render;
       this.updateFocus();
-      if (this.screenUpdated) e.clearRenderTextures();
+      const s = Math.floor(-this.offset[0] / 256 / 16) - 1;
+      const i = Math.floor(-this.offset[1] / 256 / 16) - 1;
+      const a = Math.floor(-this.offset[0] / 256 / 16 + this.width / this.scale / 16);
+      const n = Math.floor(-this.offset[1] / 256 / 16 + this.height / this.scale / 16);
       if (this.drawPastedArrows || this.selectedMap.getSelectedArrows().length) this.screenUpdated = true;
       // keep original adaptive check
       const h = globalThis.game?.PlayerSettings;
       if (h && h.framesToUpdate && h.framesToUpdate[this.updateSpeedLevel] > 1) this.screenUpdated = true;
+
+      let anyDirty = false;
+      this.gameMap.chunks.forEach((ch, key) => {
+        if (ch.x >= s && ch.x <= a && ch.y >= i && ch.y <= n) {
+          if (ch.renderDirty || !e.hasChunkMesh(key)) {
+            anyDirty = true;
+          }
+        }
+      });
+
+      if (this.screenUpdated) {
+        e.clearRenderTextures();
+      } else if (anyDirty) {
+        e.render.setRenderTarget(e.mainRenderTexture);
+        e.render.clear(0, 0, 0, 0);
+        e.render.setRenderTarget(null);
+      }
+
       const t = this.scale;
       e.startArrowsRendering();
       e.setChunkArrowSize(t);
       e.setChunkArrowAlpha(1);
       e.setChunkArrowOffset(this.offset[0] / 256, this.offset[1] / 256);
-      const s = Math.floor(-this.offset[0] / 256 / 16) - 1;
-      const i = Math.floor(-this.offset[1] / 256 / 16) - 1;
-      const a = Math.floor(-this.offset[0] / 256 / 16 + this.width / this.scale / 16);
-      const n = Math.floor(-this.offset[1] / 256 / 16 + this.height / this.scale / 16);
       this.gameMap.chunks.forEach((ch, key) => {
         if (!(ch.x >= s && ch.x <= a && ch.y >= i && ch.y <= n)) return;
         const need = ch.renderDirty || !e.hasChunkMesh(key);
@@ -1012,7 +1029,7 @@ public static class MapBridgeScript
           e.updateChunkMesh(key, m.vertices, m.indices);
           ch.renderDirty = false;
         }
-        if (this.screenUpdated || need) e.drawChunkMesh(key);
+        if (this.screenUpdated || anyDirty || need) e.drawChunkMesh(key);
       });
       if (performance.now() - this.drawTime > 1000) {
         this.drawTime = performance.now();

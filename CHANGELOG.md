@@ -2,6 +2,14 @@
 
 Все заметные изменения Logic Arrows Launcher собраны в этом файле.
 
+## [1.0.9] — dark theme signal fix
+
+### Исправлено
+
+- Устранено «застывание» красных и синих сигналов в тёмной теме: клетки мгновенно возвращаются в неактивное состояние при прохождении импульса.
+- `mainRenderTexture` теперь своевременно очищается при изменении сигналов в видимых чанках поля, предотвращая появление светящихся «следов».
+- Сохранена видимость серой сетки поля вокруг и под всеми неактивными стрелками.
+
 ## [1.0.7] — dark UI polish
 
 ### Исправлено
@@ -78,6 +86,7 @@
 - Официальная favicon Logic Arrows в EXE, README и Releases.
 - F11/Esc fullscreen-логика предыдущего выпуска.
 
+[1.0.9]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.9
 [1.0.7]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.7
 [1.0.6]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.6
 [1.0.5]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.5

@@ -196,7 +196,7 @@ assert.match(launcherSource, /WM_ACTIVATEAPP[\s\S]*RequestNativeFocusRecovery/, 
 assert.match(launcherSource, /WM_SETFOCUS[\s\S]*RequestNativeFocusRecovery/, 'set-focus queues native focus recovery');
 assert.match(launcherSource, /!appIsActive[\s\S]*nativeFocusRecoveryQueued/, 'native recovery never steals focus while app is inactive');
 assert.match(launcherSource, /!isGameFullscreen \|\| !appIsActive \|\| requestId != focusRequestId/, 'delayed retries cancel after deactivation');
-const match = source.match(/public const string Source = """\n([\s\S]*?)\n""";/);
+const match = source.match(/public const string Source = """\r?\n([\s\S]*?)\r?\n""";/);
 assert.ok(match, 'bridge raw string found');
 assert.match(match[1], /installGameFocusRecovery/, 'page focus recovery is installed');
 assert.match(match[1], /visibilitychange/, 'page recovers input after visibility returns');
@@ -207,8 +207,9 @@ assert.match(match[1], /addEventListener\?\.\('blur', clearOfficialKeyboardState
 assert.match(match[1], /addEventListener\?\.\('pagehide', clearOfficialKeyboardState/, 'pagehide clears stale keys');
 assert.match(match[1], /function patchDarkGridTileShader\(source\)/, 'dark grid tile has a narrow patch');
 assert.match(match[1], /mix\(vec3\(0\.98\), color\.rgb, scale\)/, 'grid tile patch targets the official white base');
-assert.match(match[1], /mix\(vec3\(0\.055, 0\.075, 0\.11\), color\.rgb, scale\)/, 'grid tile patch uses the dark field color');
+assert.match(match[1], /mix\(vec3\(0\.16, 0\.18, 0\.22\), color\.rgb, scale\)/, 'grid tile patch uses the dark field color');
 assert.match(match[1], /patchDarkGridTileShader\([\s\S]*patchDarkGridGeneratorShader/, 'grid tile patch is applied in shaderSource hook');
+assert.match(match[1], /anyDirty[\s\S]*e\.render\.clear\(0, 0, 0, 0\)/, 'dirty chunks trigger mainRenderTexture clearing to avoid frozen signals');
 assert.doesNotMatch(match[1], /patchDarkGridComposite/, 'official grid composite path is preserved');
 assert.doesNotMatch(match[1], /drawGridRenderTexture = function/, 'grid composite is not replaced with an alpha override');
 vm.runInNewContext(match[1], sandbox, { filename: 'MapBridgeScript.Source' });
@@ -244,21 +245,21 @@ assert.match(match[1], /html\[data-logic-arrows-dark-ui='1'\] \.ui-toolbar/, 'ga
 assert.match(match[1], /html\[data-logic-arrows-dark-ui='1'\] \.level-side-panel/, 'levels panel dark style is scoped to dark UI');
 assert.match(match[1], /html\[data-logic-arrows-dark-ui='1'\] \.ui-toolbar-item-tooltip/, 'real toolbar tooltip dark style is scoped to dark UI');
 assert.match(match[1], /\.ui-toolbar-item-tooltip \*/, 'toolbar tooltip descendants inherit readable dark text');
-const darkTooltipBlock = match[1].match(/html\[data-logic-arrows-dark-ui='1'\] \.ui-toolbar-item-tooltip \{([\s\S]*?)\n\s+\}/)?.[1] || '';
+const darkTooltipBlock = match[1].match(/html\[data-logic-arrows-dark-ui='1'\] \.ui-toolbar-item-tooltip \{([\s\S]*?)\r?\n\s+\}/)?.[1] || '';
 assert.doesNotMatch(darkTooltipBlock, /opacity:\s*1\s*!important;/, 'toolbar tooltip keeps official hover opacity behavior');
 assert.match(match[1], /html\[data-logic-arrows-dark-ui='1'\] \.ui-arrow-info/, 'legacy arrow info dark style remains scoped');
 assert.match(match[1], /\.ui-arrow-info h1[\s\S]*opacity: 1 !important;/, 'arrow tooltip text stays opaque');
-assert.match(match[1], /background-color: transparent !important;\n\s+color: inherit !important;/, 'level panel text does not get separate tile backgrounds');
-assert.doesNotMatch(match[1], /\n    \.ui-toolbar-item,\n/, 'no global toolbar item override remains');
+assert.match(match[1], /background-color: transparent !important;\r?\n\s+color: inherit !important;/, 'level panel text does not get separate tile backgrounds');
+assert.doesNotMatch(match[1], /\r?\n    \.ui-toolbar-item,\r?\n/, 'no global toolbar item override remains');
 
 patchedGame.render.clearRenderTextures();
 assert.deepEqual(clearCalls, [
   ['target', gameRender.mainRenderTexture],
-  ['clear', 0.055, 0.075, 0.11, 1],
-  ['target', gameRender.gridRenderTexture],
   ['clear', 0, 0, 0, 0],
+  ['target', gameRender.gridRenderTexture],
+  ['clear', 1, 1, 1, 1],
   ['target', null],
-], 'dark theme clears only the arrow background dark and keeps grid layer transparent');
+], 'dark theme clears mainRenderTexture transparent and gridRenderTexture white');
 
 clearCalls.length = 0;
 storage.set('logic-arrows-theme', 'light');
@@ -276,12 +277,12 @@ fakeContext.shaderSource({}, gridTileShader);
 assert.equal(shaderSourceCalls.length, 3, 'arrow and grid shaders remain callable');
 assert.match(shaderSourceCalls[0], /vec4\(1\.0, 1\.0, 1\.0, 0\.0\)/, 'selection preview keeps official transparent signal color');
 assert.doesNotMatch(shaderSourceCalls[0], /vec4\(0\.055, 0\.075, 0\.11, 0\.0\)/, 'selection preview is not dark-background patched');
-assert.match(shaderSourceCalls[1], /vec4\(0\.055, 0\.075, 0\.11, 1\.0\)/, 'dark theme replaces opaque chunk-cell background');
+assert.match(shaderSourceCalls[1], /vec4\(0\.0, 0\.0, 0\.0, 0\.0\)/, 'dark theme makes empty cell background transparent for grid visibility');
 assert.doesNotMatch(shaderSourceCalls[0], /alpha = mix\(alpha, 0\.75, scale\)/, 'selection preview does not force opaque alpha');
 assert.match(shaderSourceCalls[0], /float alpha = color\.a \* u_alpha;/, 'selection preview keeps texture alpha');
 assert.match(shaderSourceCalls[1], /vec3 base = color\.rgb \+ signal_colors\[signal_index\]\.rgb \* \(1\.0 - color\.a\)/, 'chunk shader keeps official base composition');
 assert.match(shaderSourceCalls[1], /texture\(u_texture, v_texcoord\)/, 'chunk shader keeps normal texture sampling');
-assert.match(shaderSourceCalls[2], /mix\(vec3\(0\.055, 0\.075, 0\.11\), color\.rgb, scale\)/, 'dark grid tile replaces the white zoom-out base');
+assert.match(shaderSourceCalls[2], /mix\(vec3\(0\.16, 0\.18, 0\.22\), color\.rgb, scale\)/, 'dark grid tile replaces the white zoom-out base');
 assert.match(shaderSourceCalls[0], /vec4\(1\.0, 0\.0, 0\.0, 1\.0\)/, 'red signal color remains original');
 assert.match(shaderSourceCalls[0], /vec4\(0\.3, 0\.5, 1\.0, 1\.0\)/, 'blue signal color remains original');
 
@@ -290,9 +291,9 @@ fakeContext.shaderSource({}, selectionArrowShader);
 assert.match(shaderSourceCalls[3], /vec4\(1\.0, 1\.0, 1\.0, 0\.0\)/, 'light theme keeps official selection-cell background');
 
 storage.set('logic-arrows-theme', 'dark');
-const gridGeneratorShader = `uniform float u_show_chunk_borders; out vec4 out_color; void main() { vec2 grid = fract(vec2(1.0)); float color = 1.0; out_color = vec4(vec3(color), 1.0); }`;
+const gridGeneratorShader = `uniform float u_show_chunk_borders; out vec4 out_color; void main() { vec2 grid = fract(vec2(1.0)); float color = 1.0 - step(min(grid.x, grid.y), 0.0) * 0.2; out_color = vec4(vec3(color), 1.0); }`;
 fakeContext.shaderSource({}, gridGeneratorShader);
-assert.match(shaderSourceCalls[4], /vec3\(0\.44\), gridLine/, 'dark grid uses gray lines with transparent empty cells');
+assert.match(shaderSourceCalls[4], /float color = 0\.16 \+ step\(min\(grid\.x, grid\.y\), 0\.0\) \* 0\.34;/, 'dark grid uses dark background and lighter lines');
 
 console.log(`adaptive_ticks=${highLevelTicks}`);
 console.log('low_tps_official_path=True');
