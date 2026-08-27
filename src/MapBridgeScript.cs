@@ -26,7 +26,6 @@ public static class MapBridgeScript
   const PATCHED_DARK_RENDER_KEY = '__logicArrowsLauncherDarkRenderClear';
   const PATCHED_DARK_ARROW_KEY = '__logicArrowsLauncherDarkArrowCell';
   const PATCHED_DARK_GRID_KEY = '__logicArrowsLauncherDarkGrid';
-  const PATCHED_DARK_GRID_TILE_KEY = '__logicArrowsLauncherDarkGridTile';
   const PATCHED_FOCUS_RECOVERY_KEY = '__logicArrowsLauncherFocusRecovery';
   const UPDATE_COUNTS = [1, 1, 1, 5, 20, 100];
   const SKIP_COUNTS = [20, 5, 1, 1, 1, 1];
@@ -171,16 +170,6 @@ public static class MapBridgeScript
       background-color: var(--logic-background);
       color: var(--logic-ink);
       transition: background-color 180ms ease, color 180ms ease;
-    }
-    .ui-game-view canvas:focus,
-    .ui-game-view canvas:focus-visible,
-    .ui-game-view-canvas:focus,
-    .ui-game-view-canvas:focus-visible,
-    canvas.cnv:focus,
-    canvas.cnv:focus-visible {
-      outline: none !important;
-      box-shadow: none !important;
-      -webkit-tap-highlight-color: transparent !important;
     }
     #logic-arrows-launcher-settings-heading {
       margin: clamp(24px, 5vh, 56px) 0 0 clamp(24px, 10vw, 140px);
@@ -895,9 +884,7 @@ public static class MapBridgeScript
     return source
       .replace('vec4(1.0, 1.0, 1.0, 0.0)', 'vec4(0.055, 0.075, 0.11, 0.0)')
       .replace('vec4(1.0, 1.0, 1.0, 1.0)', 'vec4(0.055, 0.075, 0.11, 1.0)')
-      .replace('vec3 base = color.rgb + signal_colors[u_signal].rgb * (1.0 - color.a)', 'vec3 base = color.rgb * color.a + signal_colors[u_signal].rgb * (1.0 - color.a)')
-      .replace('vec3 base = color.rgb + signal_colors[signal_index].rgb * (1.0 - color.a)', 'vec3 base = color.rgb * color.a + signal_colors[signal_index].rgb * (1.0 - color.a)')
-      .replace('vec4 color = texture(u_texture, uv * u_sprite_size + u_sprite_position);', 'vec4 color = textureLod(u_texture, uv * u_sprite_size + u_sprite_position, 0.0);');
+      .replace(/float alpha = color\.a \* u_alpha;\s*alpha = mix\(alpha, 0\.75, scale\);/, 'float alpha = color.a * u_alpha;');
   }
 
   function patchDarkGridGeneratorShader(source) {
@@ -914,19 +901,6 @@ public static class MapBridgeScript
     );
   }
 
-  function patchDarkGridTileShader(source) {
-    if (!isDarkTheme() || typeof source !== 'string') return source;
-    if (
-      !source.includes('uniform sampler2D u_texture') ||
-      !source.includes('mix(vec3(0.98), color.rgb, scale)')
-    ) return source;
-
-    return source.replace(
-      'mix(vec3(0.98), color.rgb, scale)',
-      'mix(vec3(0.055, 0.075, 0.11), color.rgb, scale)',
-    );
-  }
-
   function installDarkArrowCellShaderHook() {
     const contexts = [globalThis.WebGL2RenderingContext, globalThis.WebGLRenderingContext];
     for (const Context of contexts) {
@@ -938,9 +912,7 @@ public static class MapBridgeScript
         return originalShaderSource.call(
           this,
           shader,
-          patchDarkGridTileShader(
-            patchDarkGridGeneratorShader(patchDarkArrowCellShader(source)),
-          ),
+          patchDarkGridGeneratorShader(patchDarkArrowCellShader(source)),
         );
       };
       Object.defineProperty(prototype, PATCHED_DARK_ARROW_KEY, { value: true });
