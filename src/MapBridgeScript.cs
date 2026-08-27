@@ -892,24 +892,17 @@ public static class MapBridgeScript
     ) return source;
 
     return source
-      // chunk: stop forcing the whole cell opaque so the grid shows through
+      // default signal (index 0) gets no cell fill, only the glyph
+      .replace('vec4(1.0, 1.0, 1.0, 1.0)', 'vec4(1.0, 1.0, 1.0, 0.0)')
+      // chunk: keep colored cell but make it semi-transparent so the grid shows through
       .replace(
         'alpha = max(alpha, signal_colors[signal_index].a);',
-        'alpha = color.a * u_alpha;'
+        'alpha = max(color.a * u_alpha, signal_colors[signal_index].a * 0.5 * (1.0 - color.a));'
       )
-      // arrow: only the glyph gets the far-zoom opacity boost, not the cell
+      // arrow: same, plus preserve glyph opacity boost at distance
       .replace(
         'alpha = mix(alpha, 0.75, scale);',
-        'alpha = color.a * mix(u_alpha, 0.75, scale);'
-      )
-      // tint the glyph by its signal color instead of filling the cell
-      .replace(
-        'vec3 base = color.rgb + signal_colors[u_signal].rgb * (1.0 - color.a)',
-        'vec3 base = color.rgb * mix(vec3(1.0), signal_colors[u_signal].rgb, 0.9);'
-      )
-      .replace(
-        'vec3 base = color.rgb + signal_colors[signal_index].rgb * (1.0 - color.a)',
-        'vec3 base = color.rgb * mix(vec3(1.0), signal_colors[signal_index].rgb, 0.9);'
+        'alpha = max(color.a * mix(u_alpha, 0.75, scale), signal_colors[u_signal].a * 0.5 * (1.0 - color.a));'
       );
   }
 
