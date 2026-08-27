@@ -891,19 +891,12 @@ public static class MapBridgeScript
       !source.includes('vec3 base = color.rgb + signal_colors')
     ) return source;
 
-    return source
-      // default signal (index 0) gets no cell fill, only the glyph
-      .replace('vec4(1.0, 1.0, 1.0, 1.0)', 'vec4(1.0, 1.0, 1.0, 0.0)')
-      // chunk: keep colored cell but make it semi-transparent so the grid shows through
-      .replace(
-        'alpha = max(alpha, signal_colors[signal_index].a);',
-        'alpha = max(color.a * u_alpha, signal_colors[signal_index].a * 0.5 * (1.0 - color.a));'
-      )
-      // arrow: same, plus preserve glyph opacity boost at distance
-      .replace(
-        'alpha = mix(alpha, 0.75, scale);',
-        'alpha = max(color.a * mix(u_alpha, 0.75, scale), signal_colors[u_signal].a * 0.5 * (1.0 - color.a));'
-      );
+    // mirror light theme exactly: only swap signal 0 (white bg) -> dark bg so the
+    // default arrow cell blends with the dark background instead of showing a white box
+    return source.replace(
+      'vec4(1.0, 1.0, 1.0, 1.0)',
+      'vec4(0.16, 0.18, 0.22, 1.0)'
+    );
   }
 
   function patchDarkGridGeneratorShader(source) {
@@ -913,15 +906,10 @@ public static class MapBridgeScript
       !source.includes('out_color = vec4(vec3(color), 1.0);')
     ) return source;
 
+    // mirror light theme exactly: bg white(1.0) + lines 0.8 -> dark bg + lighter lines
     return source.replace(
-      'out_color = vec4(vec3(color), 1.0);',
-      `vec2 grid2 = fract(uv * u_scale) - 0.08;
-  float _gridD = min(grid2.x, grid2.y);
-  float _gridAA = min(fwidth(_gridD) * 1.5, 0.08);
-  float gridLine = 1.0 - smoothstep(0.0, _gridAA, _gridD);
-  vec3 bg = vec3(0.14, 0.16, 0.20);
-  vec3 line = vec3(0.5, 0.53, 0.6);
-  out_color = vec4(mix(bg, line, gridLine), 1.0);`,
+      'float color = 1.0 - step(min(grid.x, grid.y), 0.0) * 0.2;',
+      'float color = 0.16 + step(min(grid.x, grid.y), 0.0) * 0.34;'
     );
   }
 
@@ -932,12 +920,10 @@ public static class MapBridgeScript
       !source.includes('mix(vec3(0.98), color.rgb, scale)')
     ) return source;
 
-    return source
-      .replace('smoothstep(32.0, 64.0, scale)', 'smoothstep(8.0, 24.0, scale)')
-      .replace(
-        'mix(vec3(0.98), color.rgb, scale)',
-        'mix(vec3(0.14, 0.16, 0.20), color.rgb, scale)',
-      );
+    return source.replace(
+      'mix(vec3(0.98), color.rgb, scale)',
+      'mix(vec3(0.16, 0.18, 0.22), color.rgb, scale)'
+    );
   }
 
   function installDarkArrowCellShaderHook() {
