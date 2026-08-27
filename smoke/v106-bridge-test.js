@@ -267,15 +267,18 @@ assert.deepEqual(clearCalls, [['official-clear']], 'light theme keeps official c
 
 storage.set('logic-arrows-theme', 'dark');
 const fakeContext = new sandbox.WebGL2RenderingContext();
-const selectionArrowShader = `const vec4 signal_colors[] = vec4[] (vec4(1.0, 1.0, 1.0, 0.0), vec4(1.0, 0.0, 0.0, 1.0), vec4(0.3, 0.5, 1.0, 1.0)); vec3 base = color.rgb + signal_colors[u_signal].rgb * (1.0 - color.a);`;
-const chunkArrowShader = `const vec4 signal_colors[] = vec4[] (vec4(1.0, 1.0, 1.0, 1.0), vec4(1.0, 0.0, 0.0, 1.0), vec4(0.3, 0.5, 1.0, 1.0)); vec3 base = color.rgb + signal_colors[signal_index].rgb * (1.0 - color.a);`;
+const selectionArrowShader = `const vec4 signal_colors[] = vec4[] (vec4(1.0, 1.0, 1.0, 0.0), vec4(1.0, 0.0, 0.0, 1.0), vec4(0.3, 0.5, 1.0, 1.0)); vec4 color = texture(u_texture, uv * u_sprite_size + u_sprite_position); vec3 base = color.rgb + signal_colors[u_signal].rgb * (1.0 - color.a);`;
+const chunkArrowShader = `const vec4 signal_colors[] = vec4[] (vec4(1.0, 1.0, 1.0, 1.0), vec4(1.0, 0.0, 0.0, 1.0), vec4(0.3, 0.5, 1.0, 1.0)); vec4 color = texture(u_texture, v_texcoord); vec3 base = color.rgb + signal_colors[signal_index].rgb * (1.0 - color.a);`;
 fakeContext.shaderSource({}, selectionArrowShader);
 fakeContext.shaderSource({}, chunkArrowShader);
 assert.equal(shaderSourceCalls.length, 2, 'arrow shaders remain callable');
 assert.match(shaderSourceCalls[0], /vec4\(0\.055, 0\.075, 0\.11, 0\.0\)/, 'dark theme replaces transparent selection-cell background');
 assert.match(shaderSourceCalls[1], /vec4\(0\.055, 0\.075, 0\.11, 1\.0\)/, 'dark theme replaces opaque chunk-cell background');
 assert.match(shaderSourceCalls[0], /vec3 base = color\.rgb \* color\.a \+ signal_colors\[u_signal\]\.rgb \* \(1\.0 - color\.a\)/, 'selection shader ignores transparent white RGB');
+assert.match(shaderSourceCalls[0], /textureLod\(u_texture, uv \* u_sprite_size \+ u_sprite_position, 0\.0\)/, 'selection shader avoids mipmap bleed');
 assert.match(shaderSourceCalls[1], /vec3 base = color\.rgb \* color\.a \+ signal_colors\[signal_index\]\.rgb \* \(1\.0 - color\.a\)/, 'chunk shader ignores transparent white RGB');
+assert.match(shaderSourceCalls[1], /texture\(u_texture, v_texcoord\)/, 'chunk shader keeps normal texture sampling');
+assert.doesNotMatch(shaderSourceCalls[1], /textureLod/, 'chunk shader is not changed to selection sampling');
 assert.match(shaderSourceCalls[0], /vec4\(1\.0, 0\.0, 0\.0, 1\.0\)/, 'red signal color remains original');
 assert.match(shaderSourceCalls[0], /vec4\(0\.3, 0\.5, 1\.0, 1\.0\)/, 'blue signal color remains original');
 
