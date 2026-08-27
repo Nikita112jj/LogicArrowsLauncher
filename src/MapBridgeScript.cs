@@ -892,8 +892,8 @@ public static class MapBridgeScript
     ) return source;
 
     return source
-      .replace('vec4(1.0, 1.0, 1.0, 0.0)', 'vec4(0.16, 0.18, 0.22, 0.0)')
-      .replace('vec4(1.0, 1.0, 1.0, 1.0)', 'vec4(0.16, 0.18, 0.22, 1.0)')
+      .replace('vec4(1.0, 1.0, 1.0, 0.0)', 'vec4(0.14, 0.16, 0.20, 0.0)')
+      .replace('vec4(1.0, 1.0, 1.0, 1.0)', 'vec4(0.14, 0.16, 0.20, 1.0)')
       .replace('vec3 base = color.rgb + signal_colors[u_signal].rgb * (1.0 - color.a)', 'vec3 base = color.rgb * color.a + signal_colors[u_signal].rgb * (1.0 - color.a)')
       .replace('vec3 base = color.rgb + signal_colors[signal_index].rgb * (1.0 - color.a)', 'vec3 base = color.rgb * color.a + signal_colors[signal_index].rgb * (1.0 - color.a)');
   }
@@ -909,10 +909,10 @@ public static class MapBridgeScript
       'out_color = vec4(vec3(color), 1.0);',
       `vec2 grid2 = fract(uv * u_scale) - 0.08;
   float _gridD = min(grid2.x, grid2.y);
-  float _gridAA = fwidth(_gridD) * 1.5;
+  float _gridAA = min(fwidth(_gridD) * 1.5, 0.08);
   float gridLine = 1.0 - smoothstep(0.0, _gridAA, _gridD);
-  vec3 bg = vec3(0.16, 0.18, 0.22);
-  vec3 line = vec3(0.42, 0.45, 0.52);
+  vec3 bg = vec3(0.14, 0.16, 0.20);
+  vec3 line = vec3(0.5, 0.53, 0.6);
   out_color = vec4(mix(bg, line, gridLine), 1.0);`,
     );
   }
@@ -924,10 +924,12 @@ public static class MapBridgeScript
       !source.includes('mix(vec3(0.98), color.rgb, scale)')
     ) return source;
 
-    return source.replace(
-      'mix(vec3(0.98), color.rgb, scale)',
-      'mix(vec3(0.16, 0.18, 0.22), color.rgb, scale)',
-    );
+    return source
+      .replace('smoothstep(32.0, 64.0, scale)', 'smoothstep(8.0, 24.0, scale)')
+      .replace(
+        'mix(vec3(0.98), color.rgb, scale)',
+        'mix(vec3(0.14, 0.16, 0.20), color.rgb, scale)',
+      );
   }
 
   function installDarkArrowCellShaderHook() {
@@ -970,10 +972,10 @@ public static class MapBridgeScript
     const origClear = gr.render.clear;
     gr.render.clear = function(r, g, b, a) {
       if (isDarkTheme() && arguments.length === 0) {
-        return origClear.call(this, 0.16, 0.18, 0.22, 1);
+        return origClear.call(this, 1, 1, 1, 1);
       }
       if (isDarkTheme() && r === 1 && g === 1 && b === 1 && a === 1) {
-        return origClear.call(this, 0.16, 0.18, 0.22, 1);
+        return origClear.call(this, 1, 1, 1, 1);
       }
       return origClear.apply(this, arguments);
     };
@@ -1085,7 +1087,7 @@ public static class MapBridgeScript
       this.render.setRenderTarget(this.mainRenderTexture);
       this.render.clear(0, 0, 0, 0);
       this.render.setRenderTarget(this.gridRenderTexture);
-      this.render.clear(0.16, 0.18, 0.22, 1);
+      this.render.clear(1, 1, 1, 1);
       this.render.setRenderTarget(null);
     };
     Object.defineProperty(gameRender, PATCHED_DARK_RENDER_KEY, { value: true });
