@@ -910,7 +910,9 @@ public static class MapBridgeScript
       `float _gridD = min(grid.x, grid.y);
   float _gridAA = fwidth(_gridD) * 1.5;
   float gridLine = 1.0 - smoothstep(0.0, _gridAA, _gridD);
-  out_color = vec4(vec3(0.62), gridLine);`,
+  vec3 bg = vec3(0.055, 0.075, 0.11);
+  vec3 line = vec3(0.62, 0.62, 0.62);
+  out_color = vec4(mix(bg, line, gridLine), 1.0);`,
     );
   }
 
@@ -948,22 +950,112 @@ public static class MapBridgeScript
     }
   }
 
+  const PATCHED_DARK_DRAW_KEY = '__logicArrowsLauncherDarkDraw';
   function patchDarkBackgroundFiltering() {
-    // keep original linear+mipmap for dark grid - antialiased shader already handles filtering
-    // previous NEAREST patch caused flicker (alias shimmer) when zooming/panning
-    // so we no longer force NEAREST, just ensure mipmaps are generated after patch
     const gamePage = findGamePage(globalThis.game);
     const gr = gamePage?.game?.render;
     if (!gr || !gr.backgroundTexture || !gr.render || !gr.render.gl) return;
     if (!isDarkTheme()) return;
-    // ensure backgroundTexture stays with original filtering (linear + mipmap) for smooth zoom
-    // but make sure it has mipmaps after our shader patch
     try {
       if (gr.backgroundTexture.generateMipmaps && !gr.backgroundTexture.__patchedDarkFiltering) {
-        // tag to avoid repeated work, but don't change filtering
         gr.backgroundTexture.__patchedDarkFiltering = true;
       }
     } catch {}
+  }
+  function patchDarkScreenClear() {
+    const gamePage = findGamePage(globalThis.game);
+    const gr = gamePage?.game?.render;
+    if (!gr || !gr.render || typeof gr.render.clear !== 'function' || gr.render.__patchedDarkClear) return;
+    const origClear = gr.render.clear;
+    gr.render.clear = function(r, g, b, a) {
+      if (isDarkTheme() && arguments.length === 0) {
+        return origClear.call(this, 0.055, 0.075, 0.11, 1);
+      }
+      if (isDarkTheme() && r === 1 && g === 1 && b === 1 && a === 1) {
+        return origClear.call(this, 0.055, 0.075, 0.11, 1);
+      }
+      return origClear.apply(this, arguments);
+    };
+    gr.render.__patchedDarkClear = true;
+  }
+  function patchDarkDrawOrder() {
+    const gamePage = findGamePage(globalThis.game);
+    const game = gamePage?.game;
+    if (!game || game.__patchedDarkDraw) return;
+    const proto = Object.getPrototypeOf(game);
+    const origDraw = proto.draw;
+    if (typeof origDraw !== 'function' || origDraw.__patchedDark) return;
+    const wrappedDraw = function(...args) {
+      if (!isDarkTheme()) return origDraw.apply(this, args);
+      if (!this.render || !this.render.isReady()) return;
+      const e = this.render;
+      this.updateFocus();
+      if (this.screenUpdated) e.clearRenderTextures();
+      if (this.drawPastedArrows || this.selectedMap.getSelectedArrows().length) this.screenUpdated = true;
+      // keep original adaptive check
+      const h = globalThis.game?.PlayerSettings;
+      if (h && h.framesToUpdate && h.framesToUpdate[this.updateSpeedLevel] > 1) this.screenUpdated = true;
+      const t = this.scale;
+      e.startArrowsRendering();
+      e.setChunkArrowSize(t);
+      e.setChunkArrowAlpha(1);
+      e.setChunkArrowOffset(this.offset[0] / 256, this.offset[1] / 256);
+      const s = Math.floor(-this.offset[0] / 256 / 16) - 1;
+      const i = Math.floor(-this.offset[1] / 256 / 16) - 1;
+      const a = Math.floor(-this.offset[0] / 256 / 16 + this.width / this.scale / 16);
+      const n = Math.floor(-this.offset[1] / 256 / 16 + this.height / this.scale / 16);
+      this.gameMap.chunks.forEach((ch, key) => {
+        if (!(ch.x >= s && ch.x <= a && ch.y >= i && ch.y <= n)) return;
+        const need = ch.renderDirty || !e.hasChunkMesh(key);
+        if (need) {
+          const m = this.buildChunkMesh(ch);
+          e.updateChunkMesh(key, m.vertices, m.indices);
+          ch.renderDirty = false;
+        }
+        if (this.screenUpdated || need) e.drawChunkMesh(key);
+      });
+      if (performance.now() - this.drawTime > 1000) {
+        this.drawTime = performance.now();
+        this.fps = this.drawsPerSecond;
+        this.drawsPerSecond = 0;
+      }
+      this.drawsPerSecond++;
+      e.endArrowsRendering();
+      e.removeMissingChunkMeshes(this.gameMap.chunks);
+      if (this.screenUpdated) e.drawBackground(this.scale, [-this.offset[0] / 256, -this.offset[1] / 256]);
+      // DARK: draw grid BEFORE arrows so gray lines stay behind arrows and don't hide them
+      e.clear();
+      e.drawGridRenderTexture();
+      e.drawArrowsRenderTexture();
+      e.setSolidColor(0.25, 0.5, 1, 0.25);
+      this.selectedMap.getSelectedArrows().forEach(k => {
+        const p = k.split(',').map(x => parseInt(x, 10));
+        const x = p[0] * this.scale + this.offset[0] * this.scale / 256;
+        const y = p[1] * this.scale + this.offset[1] * this.scale / 256;
+        const sz = this.scale + 0.05 * this.scale;
+        e.drawSolidColorRect(x, y, sz, sz);
+      });
+      e.startTransparentArrowsRendering();
+      e.setArrowSize(t);
+      this.drawSelectedArrows();
+      if (this.isSelecting) {
+        const sel = this.selectedMap.getCurrentSelectedArea();
+        if (sel) {
+          const x = sel[0] * this.scale + this.offset[0] * this.scale / 256;
+          const y = sel[1] * this.scale + this.offset[1] * this.scale / 256;
+          const w = (sel[2] - sel[0]) * this.scale;
+          const h2 = (sel[3] - sel[1]) * this.scale;
+          e.setSolidColor(0.5, 0.5, 0.75, 0.25);
+          e.drawSolidColorRect(x, y, w, h2);
+        }
+      }
+      this.screenUpdated = false;
+      this.frame++;
+      return;
+    };
+    wrappedDraw.__patchedDark = true;
+    proto.draw = wrappedDraw;
+    game.__patchedDarkDraw = true;
   }
 
   function patchDarkRenderClear() {
@@ -990,9 +1082,9 @@ public static class MapBridgeScript
       }
 
       this.render.setRenderTarget(this.mainRenderTexture);
-      this.render.clear(0.055, 0.075, 0.11, 1);
-      this.render.setRenderTarget(this.gridRenderTexture);
       this.render.clear(0, 0, 0, 0);
+      this.render.setRenderTarget(this.gridRenderTexture);
+      this.render.clear(0.055, 0.075, 0.11, 1);
       this.render.setRenderTarget(null);
     };
     Object.defineProperty(gameRender, PATCHED_DARK_RENDER_KEY, { value: true });
@@ -1404,6 +1496,8 @@ public static class MapBridgeScript
     installGameFocusRecovery();
     installDarkArrowCellShaderHook();
     patchDarkBackgroundFiltering();
+    patchDarkScreenClear();
+    patchDarkDrawOrder();
     patchDarkRenderClear();
     ensureThemeStyle();
     applyTheme();
@@ -1428,6 +1522,8 @@ public static class MapBridgeScript
 
   installDarkArrowCellShaderHook();
   patchDarkBackgroundFiltering();
+  patchDarkScreenClear();
+  patchDarkDrawOrder();
   patchDarkRenderClear();
   startObserver();
 })();
