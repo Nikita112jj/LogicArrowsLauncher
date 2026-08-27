@@ -891,12 +891,15 @@ public static class MapBridgeScript
       !source.includes('vec3 base = color.rgb + signal_colors')
     ) return source;
 
-    // mirror light theme exactly: only swap signal 0 (white bg) -> dark bg so the
-    // default arrow cell blends with the dark background instead of showing a white box
-    return source.replace(
-      'vec4(1.0, 1.0, 1.0, 1.0)',
-      'vec4(0.16, 0.18, 0.22, 1.0)'
-    );
+    return source
+      .replace(
+        'vec4(1.0, 1.0, 1.0, 1.0)',
+        'vec4(0.0, 0.0, 0.0, 0.0)'
+      )
+      .replace(
+        'alpha = mix(alpha, 0.75, scale);',
+        'alpha = mix(alpha, 0.75 * color.a, scale);'
+      );
   }
 
   function patchDarkGridGeneratorShader(source) {
