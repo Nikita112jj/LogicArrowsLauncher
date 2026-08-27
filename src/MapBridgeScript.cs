@@ -908,6 +908,19 @@ public static class MapBridgeScript
     );
   }
 
+  function patchDarkGridTileShader(source) {
+    if (!isDarkTheme() || typeof source !== 'string') return source;
+    if (
+      !source.includes('uniform sampler2D u_texture') ||
+      !source.includes('mix(vec3(0.98), color.rgb, scale)')
+    ) return source;
+
+    return source.replace(
+      'mix(vec3(0.98), color.rgb, scale)',
+      'mix(vec3(0.055, 0.075, 0.11), color.rgb, scale)',
+    );
+  }
+
   function installDarkArrowCellShaderHook() {
     const contexts = [globalThis.WebGL2RenderingContext, globalThis.WebGLRenderingContext];
     for (const Context of contexts) {
@@ -919,7 +932,9 @@ public static class MapBridgeScript
         return originalShaderSource.call(
           this,
           shader,
-          patchDarkGridGeneratorShader(patchDarkArrowCellShader(source)),
+          patchDarkGridTileShader(
+            patchDarkGridGeneratorShader(patchDarkArrowCellShader(source)),
+          ),
         );
       };
       Object.defineProperty(prototype, PATCHED_DARK_ARROW_KEY, { value: true });
