@@ -907,8 +907,10 @@ public static class MapBridgeScript
 
     return source.replace(
       'out_color = vec4(vec3(color), 1.0);',
-      `float gridLine = step(min(grid.x, grid.y), 0.0);
-  out_color = vec4(vec3(0.44), gridLine);`,
+      `float _gridD = min(grid.x, grid.y);
+  float _gridAA = fwidth(_gridD) * 1.5;
+  float gridLine = 1.0 - smoothstep(0.0, _gridAA, _gridD);
+  out_color = vec4(vec3(0.62), gridLine);`,
     );
   }
 
@@ -947,41 +949,21 @@ public static class MapBridgeScript
   }
 
   function patchDarkBackgroundFiltering() {
+    // keep original linear+mipmap for dark grid - antialiased shader already handles filtering
+    // previous NEAREST patch caused flicker (alias shimmer) when zooming/panning
+    // so we no longer force NEAREST, just ensure mipmaps are generated after patch
     const gamePage = findGamePage(globalThis.game);
     const gr = gamePage?.game?.render;
     if (!gr || !gr.backgroundTexture || !gr.render || !gr.render.gl) return;
     if (!isDarkTheme()) return;
-    const tex = gr.backgroundTexture.texture;
-    const gl = gr.render.gl;
-    if (!tex || gr.backgroundTexture.__patchedDarkFiltering) return;
+    // ensure backgroundTexture stays with original filtering (linear + mipmap) for smooth zoom
+    // but make sure it has mipmaps after our shader patch
     try {
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, 0);
-      gl.bindTexture(gl.TEXTURE_2D, null);
-      gr.backgroundTexture.__patchedDarkFiltering = true;
+      if (gr.backgroundTexture.generateMipmaps && !gr.backgroundTexture.__patchedDarkFiltering) {
+        // tag to avoid repeated work, but don't change filtering
+        gr.backgroundTexture.__patchedDarkFiltering = true;
+      }
     } catch {}
-    // also patch future createBackgroundTexture calls
-    if (gr.createBackgroundTexture && !gr.createBackgroundTexture.__patchedDark) {
-      const orig = gr.createBackgroundTexture;
-      gr.createBackgroundTexture = function() {
-        const r = orig.apply(this, arguments);
-        if (isDarkTheme() && this.backgroundTexture && this.render && this.render.gl) {
-          try {
-            const gl2 = this.render.gl;
-            const t2 = this.backgroundTexture.texture;
-            gl2.bindTexture(gl2.TEXTURE_2D, t2);
-            gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MIN_FILTER, gl2.NEAREST);
-            gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MAG_FILTER, gl2.NEAREST);
-            gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MAX_LEVEL, 0);
-            gl2.bindTexture(gl2.TEXTURE_2D, null);
-          } catch {}
-        }
-        return r;
-      };
-      gr.createBackgroundTexture.__patchedDark = true;
-    }
   }
 
   function patchDarkRenderClear() {
