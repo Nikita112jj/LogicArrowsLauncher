@@ -25,7 +25,6 @@ public static class MapBridgeScript
   const PATCHED_GAME_KEY = '__logicArrowsLauncherAdaptiveUpdate';
   const PATCHED_DARK_RENDER_KEY = '__logicArrowsLauncherDarkRenderClear';
   const PATCHED_DARK_ARROW_KEY = '__logicArrowsLauncherDarkArrowCell';
-  const PATCHED_DARK_GRID_KEY = '__logicArrowsLauncherDarkGrid';
   const PATCHED_DARK_GRID_TILE_KEY = '__logicArrowsLauncherDarkGridTile';
   const PATCHED_FOCUS_RECOVERY_KEY = '__logicArrowsLauncherFocusRecovery';
   const UPDATE_COUNTS = [1, 1, 1, 5, 20, 100];
@@ -909,9 +908,7 @@ public static class MapBridgeScript
     return source.replace(
       'out_color = vec4(vec3(color), 1.0);',
       `float gridLine = step(min(grid.x, grid.y), 0.0);
-  vec3 bg = vec3(0.055, 0.075, 0.11);
-  vec3 line = vec3(0.165, 0.185, 0.23);
-  out_color = vec4(mix(bg, line, gridLine), 1.0);`,
+  out_color = vec4(vec3(0.44), gridLine);`,
     );
   }
 
@@ -949,37 +946,42 @@ public static class MapBridgeScript
     }
   }
 
-  function patchDarkGridComposite() {
+  function patchDarkBackgroundFiltering() {
     const gamePage = findGamePage(globalThis.game);
-    const gameRender = gamePage?.game?.render;
-    if (
-      !gameRender ||
-      typeof gameRender.drawGridRenderTexture !== 'function' ||
-      gameRender[PATCHED_DARK_GRID_KEY]
-    ) return;
-
-    const originalDrawGridRenderTexture = gameRender.drawGridRenderTexture;
-    gameRender.drawGridRenderTexture = function () {
-      if (
-        !isDarkTheme() ||
-        !this.fullscreenShader ||
-        !this.gridRenderTexture ||
-        !this.render ||
-        typeof this.render.setShader !== 'function' ||
-        typeof this.render.setTexture !== 'function' ||
-        typeof this.render.setBlendMode !== 'function' ||
-        typeof this.render.drawQuad !== 'function'
-      ) {
-        return originalDrawGridRenderTexture.call(this);
-      }
-
-      this.render.setShader(this.fullscreenShader);
-      this.render.setTexture(this.gridRenderTexture);
-      this.render.setBlendMode('alpha');
-      this.render.drawQuad();
-      this.render.setBlendMode('alpha');
-    };
-    Object.defineProperty(gameRender, PATCHED_DARK_GRID_KEY, { value: true });
+    const gr = gamePage?.game?.render;
+    if (!gr || !gr.backgroundTexture || !gr.render || !gr.render.gl) return;
+    if (!isDarkTheme()) return;
+    const tex = gr.backgroundTexture.texture;
+    const gl = gr.render.gl;
+    if (!tex || gr.backgroundTexture.__patchedDarkFiltering) return;
+    try {
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, 0);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      gr.backgroundTexture.__patchedDarkFiltering = true;
+    } catch {}
+    // also patch future createBackgroundTexture calls
+    if (gr.createBackgroundTexture && !gr.createBackgroundTexture.__patchedDark) {
+      const orig = gr.createBackgroundTexture;
+      gr.createBackgroundTexture = function() {
+        const r = orig.apply(this, arguments);
+        if (isDarkTheme() && this.backgroundTexture && this.render && this.render.gl) {
+          try {
+            const gl2 = this.render.gl;
+            const t2 = this.backgroundTexture.texture;
+            gl2.bindTexture(gl2.TEXTURE_2D, t2);
+            gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MIN_FILTER, gl2.NEAREST);
+            gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MAG_FILTER, gl2.NEAREST);
+            gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MAX_LEVEL, 0);
+            gl2.bindTexture(gl2.TEXTURE_2D, null);
+          } catch {}
+        }
+        return r;
+      };
+      gr.createBackgroundTexture.__patchedDark = true;
+    }
   }
 
   function patchDarkRenderClear() {
@@ -1008,7 +1010,7 @@ public static class MapBridgeScript
       this.render.setRenderTarget(this.mainRenderTexture);
       this.render.clear(0.055, 0.075, 0.11, 1);
       this.render.setRenderTarget(this.gridRenderTexture);
-      this.render.clear(0.055, 0.075, 0.11, 1);
+      this.render.clear(0, 0, 0, 0);
       this.render.setRenderTarget(null);
     };
     Object.defineProperty(gameRender, PATCHED_DARK_RENDER_KEY, { value: true });
@@ -1419,7 +1421,7 @@ public static class MapBridgeScript
   function syncUi() {
     installGameFocusRecovery();
     installDarkArrowCellShaderHook();
-    patchDarkGridComposite();
+    patchDarkBackgroundFiltering();
     patchDarkRenderClear();
     ensureThemeStyle();
     applyTheme();
@@ -1443,7 +1445,7 @@ public static class MapBridgeScript
   }
 
   installDarkArrowCellShaderHook();
-  patchDarkGridComposite();
+  patchDarkBackgroundFiltering();
   patchDarkRenderClear();
   startObserver();
 })();
