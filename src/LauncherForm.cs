@@ -530,7 +530,7 @@ public sealed class LauncherForm : Form
         try
         {
             var envelope = MapFileService.ReadText(text);
-            var payload = JsonSerializer.Serialize(new { data = envelope.Data });
+            var payload = JsonSerializer.Serialize(new { data = envelope.Data, name = envelope.MapName });
             var stageResponse = await webView.CoreWebView2.ExecuteScriptAsync(
                 $"globalThis.__logicArrowsLauncherStageLobbyImport?.({payload}) ?? ({{}})");
             EnsureBridgeSuccess(stageResponse, "Не удалось подготовить импорт карты.");

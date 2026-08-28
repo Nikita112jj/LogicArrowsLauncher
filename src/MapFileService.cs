@@ -26,6 +26,9 @@ public sealed class MapFileEnvelope
     [JsonPropertyName("mapName")]
     public string? MapName { get; init; }
 
+    [JsonPropertyName("name")]
+    public string? LegacyName { get; init; }
+
     [JsonPropertyName("data")]
     public string Data { get; init; } = string.Empty;
 }
@@ -49,27 +52,87 @@ public static class MapFileService
             throw new InvalidDataException("Файл .map слишком большой.");
         }
 
-        return ReadText(File.ReadAllText(path));
+        var envelope = ReadText(File.ReadAllText(path));
+        if (string.IsNullOrWhiteSpace(envelope.MapName))
+        {
+            var fallbackName = Path.GetFileNameWithoutExtension(path);
+            if (!string.IsNullOrWhiteSpace(fallbackName))
+            {
+                envelope = new MapFileEnvelope
+                {
+                    Format = envelope.Format,
+                    FormatVersion = envelope.FormatVersion,
+                    SiteVersion = envelope.SiteVersion,
+                    ExportedAtUtc = envelope.ExportedAtUtc,
+                    MapId = envelope.MapId,
+                    MapName = fallbackName,
+                    Data = envelope.Data
+                };
+            }
+        }
+        return envelope;
     }
 
     public static MapFileEnvelope ReadText(string text)
     {
-        if (text.Length > MaxFileCharacters)
+        var trimmed = text.Trim();
+        if (trimmed.Length > MaxFileCharacters)
         {
-            throw new InvalidDataException("Файл .map слишком большой.");
+            throw new InvalidDataException("Данные карты слишком большие.");
+        }
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            throw new InvalidDataException("Данные карты пустые.");
+        }
+
+        if (!trimmed.StartsWith("{"))
+        {
+            // Direct Base64 string input (e.g. AAAB...)
+            try
+            {
+                var bytes = Convert.FromBase64String(trimmed);
+                if (bytes.Length < 4) throw new InvalidDataException("Данные карты слишком короткие.");
+            }
+            catch (FormatException exception)
+            {
+                throw new InvalidDataException("Введённый текст не является корректным Base64-кодом карты.", exception);
+            }
+
+            return new MapFileEnvelope
+            {
+                Format = MapFileEnvelope.ExpectedFormat,
+                FormatVersion = MapFileEnvelope.ExpectedFormatVersion,
+                SiteVersion = ResourceCatalog.CurrentVersion,
+                ExportedAtUtc = DateTimeOffset.UtcNow,
+                MapName = "Импортированная карта",
+                Data = trimmed
+            };
         }
 
         MapFileEnvelope? envelope;
         try
         {
-            envelope = JsonSerializer.Deserialize<MapFileEnvelope>(text, JsonOptions);
+            envelope = JsonSerializer.Deserialize<MapFileEnvelope>(trimmed, JsonOptions);
         }
         catch (JsonException exception)
         {
-            throw new InvalidDataException("Файл .map повреждён или имеет неверный JSON.", exception);
+            throw new InvalidDataException("Файл карты повреждён или имеет неверный JSON.", exception);
         }
 
-        if (envelope is null) throw new InvalidDataException("Файл .map пустой.");
+        if (envelope is null) throw new InvalidDataException("Данные карты пустые.");
+        if (string.IsNullOrWhiteSpace(envelope.MapName) && !string.IsNullOrWhiteSpace(envelope.LegacyName))
+        {
+            envelope = new MapFileEnvelope
+            {
+                Format = envelope.Format,
+                FormatVersion = envelope.FormatVersion,
+                SiteVersion = envelope.SiteVersion,
+                ExportedAtUtc = envelope.ExportedAtUtc,
+                MapId = envelope.MapId,
+                MapName = envelope.LegacyName,
+                Data = envelope.Data
+            };
+        }
         Validate(envelope);
         return envelope;
     }

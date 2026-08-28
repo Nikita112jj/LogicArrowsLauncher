@@ -845,6 +845,17 @@ public static class MapBridgeScript
   function installGameFocusRecovery() {
     if (!/^\/map-[^/]+$/.test(globalThis.location.pathname) || globalThis[PATCHED_FOCUS_RECOVERY_KEY]) return;
 
+    const isInputFocused = () => {
+      const active = document.activeElement;
+      return Boolean(active && (
+        active.tagName === 'INPUT' ||
+        active.tagName === 'TEXTAREA' ||
+        active.tagName === 'SELECT' ||
+        active.isContentEditable ||
+        active.classList?.contains('ui-menu-map-name-input')
+      ));
+    };
+
     const clearOfficialKeyboardState = () => {
       try {
         // Official KeyboardHandler clears its private key Sets on Control/Meta keyup.
@@ -857,7 +868,7 @@ public static class MapBridgeScript
       } catch { }
     };
     const focusGameSurface = () => {
-      if (document.visibilityState === 'hidden') return;
+      if (document.visibilityState === 'hidden' || isInputFocused()) return;
       const canvas = document.querySelector('canvas');
       if (!canvas) return;
       if (!canvas.hasAttribute('tabindex')) canvas.setAttribute('tabindex', '-1');
@@ -868,9 +879,24 @@ public static class MapBridgeScript
       }
     };
     const recover = () => {
-      if (document.visibilityState === 'hidden') return;
+      if (document.visibilityState === 'hidden' || isInputFocused()) return;
       globalThis.setTimeout(focusGameSurface, 0);
     };
+
+    // Prevent game hotkeys from hijacking typing in text inputs (e.g. map rename, modal inputs)
+    document.addEventListener('keydown', (event) => {
+      if (isInputFocused()) {
+        event.stopPropagation();
+        if (event.key === 'Enter' && document.activeElement?.tagName === 'INPUT') {
+          try { document.activeElement.blur?.(); } catch { }
+        }
+      }
+    }, true);
+    document.addEventListener('keyup', (event) => {
+      if (isInputFocused()) {
+        event.stopPropagation();
+      }
+    }, true);
 
     document.addEventListener?.('visibilitychange', () => {
       if (document.visibilityState === 'hidden') clearOfficialKeyboardState();
@@ -882,6 +908,46 @@ public static class MapBridgeScript
     globalThis.addEventListener?.('pageshow', recover);
     globalThis[PATCHED_FOCUS_RECOVERY_KEY] = true;
     globalThis.__logicArrowsLauncherRecoverInput = recover;
+  }
+
+  function patchMapNameInput() {
+    if (!/^\/map-[^/]+$/.test(globalThis.location.pathname)) return;
+    const nameInput = document.querySelector('.ui-menu-map-name-input');
+    if (!nameInput || nameInput.dataset.launcherPatched === '1') return;
+    nameInput.dataset.launcherPatched = '1';
+
+    const commitName = () => {
+      const val = nameInput.value?.trim();
+      if (!val) return;
+      try {
+        const { gamePage, namespace } = getRuntime();
+        if (gamePage?.mapInfo && gamePage.mapInfo.name !== val) {
+          gamePage.mapInfo.name = val;
+          document.title = `${val} | Logic Arrows`;
+          try { namespace.Backend?.saveMapInfo?.(gamePage.mapInfo, () => {}); } catch { }
+          try { gamePage.saveMap?.(gamePage.mapInfo); } catch { }
+          const saving = document.querySelector('.ui-menu-saving');
+          if (saving) saving.textContent = 'Сохранено';
+        }
+      } catch { }
+    };
+
+    nameInput.addEventListener('keydown', (event) => {
+      event.stopPropagation();
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commitName();
+        nameInput.blur();
+      }
+    });
+    nameInput.addEventListener('keyup', (event) => event.stopPropagation());
+    nameInput.addEventListener('keypress', (event) => event.stopPropagation());
+    nameInput.addEventListener('input', () => {
+      const val = nameInput.value?.trim();
+      if (val) document.title = `${val} | Logic Arrows`;
+    });
+    nameInput.addEventListener('blur', commitName);
+    nameInput.addEventListener('change', commitName);
   }
 
   function patchDarkArrowCellShader(source) {
@@ -1329,17 +1395,28 @@ public static class MapBridgeScript
     if (!payload || typeof payload.data !== 'string' || payload.data.length === 0 || payload.data.length > MAX_DATA_LENGTH) {
       throw new Error('Данные карты пустые или слишком большие.');
     }
-    pendingLobbyImport = { data: payload.data };
-    setImportStatus('Файл выбран. Открываю новую карту…');
+    const name = typeof payload.name === 'string' ? payload.name : (typeof payload.mapName === 'string' ? payload.mapName : null);
+    pendingLobbyImport = { data: payload.data, name: name ? name.trim().slice(0, 32) : null };
+    setImportStatus('Карта подготовлена. Открываю редактор…');
     return { ok: true, staged: true };
   }
 
   function tryPendingLobbyImport() {
     if (!pendingLobbyImport || !/^\/map-[^/]+$/.test(globalThis.location.pathname)) return;
     try {
-      const result = importMap(pendingLobbyImport);
+      const { gamePage, namespace } = getRuntime();
+      const staged = pendingLobbyImport;
+      const result = importMap(staged);
+      if (staged.name && gamePage?.mapInfo) {
+        gamePage.mapInfo.name = staged.name;
+        document.title = `${staged.name} | Logic Arrows`;
+        const nameInput = document.querySelector('.ui-menu-map-name-input');
+        if (nameInput) nameInput.value = staged.name;
+        try { namespace.Backend?.saveMapInfo?.(gamePage.mapInfo, () => {}); } catch { }
+        try { gamePage.saveMap?.(gamePage.mapInfo); } catch { }
+      }
       pendingLobbyImport = null;
-      post({ type: 'map-imported', imported: result.imported });
+      post({ type: 'map-imported', imported: result.imported, name: staged.name });
     } catch (error) {
       const message = String(error?.message || error);
       if (message === 'Редактор карты ещё не готов.') return;
@@ -1457,11 +1534,11 @@ public static class MapBridgeScript
       const modalSub = document.createElement('div');
       modalSub.style.fontSize = '0.9rem';
       modalSub.style.color = 'var(--logic-game-muted, #8ea0be)';
-      modalSub.textContent = 'Введите ID публичной карты (например: map-6ugjRgZm) или выберите локальный .map-файл.';
+      modalSub.textContent = 'Вставьте ID публичной карты (map-6ugjRgZm), ссылку, Base64-код карты (AAAB...) или выберите .map файл.';
 
       const idInput = document.createElement('input');
       idInput.type = 'text';
-      idInput.placeholder = 'ID или ссылка (map-6ugjRgZm)';
+      idInput.placeholder = 'ID, ссылка или Base64 код (AAAB...)';
       idInput.style.padding = '0.65rem 0.85rem';
       idInput.style.borderRadius = '0.5rem';
       idInput.style.border = '1px solid var(--logic-border, #32435f)';
@@ -1472,7 +1549,7 @@ public static class MapBridgeScript
       idInput.style.outline = 'none';
 
       const btnCloud = document.createElement('button');
-      btnCloud.textContent = '🌐 Загрузить по ID / ссылке';
+      btnCloud.textContent = '🌐 Загрузить по ID / коду / ссылке';
       btnCloud.style.padding = '0.65rem 1rem';
       btnCloud.style.borderRadius = '0.5rem';
       btnCloud.style.border = 'none';
@@ -1504,6 +1581,42 @@ public static class MapBridgeScript
 
       const handleCloudImport = async () => {
         const raw = idInput.value.trim();
+        if (!raw) {
+          idInput.focus();
+          return;
+        }
+
+        // 1. Direct Base64 code (e.g. AAAB...)
+        if (raw.startsWith('AAAB') || (/^[A-Za-z0-9+/=]{20,}$/.test(raw) && !raw.startsWith('map-'))) {
+          try {
+            const decoded = globalThis.atob(raw);
+            if (decoded.length >= 4) {
+              card.dataset.busy = '1';
+              setImportStatus('Импортирую карту из Base64…');
+              modalOverlay.remove();
+              stageLobbyImport({ data: raw, name: 'Импортированная карта' });
+              globalThis.__logicArrowsLauncherOpenNewMap?.();
+              return;
+            }
+          } catch { }
+        }
+
+        // 2. Direct JSON map code
+        if (raw.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed.data === 'string' && parsed.data.length >= 4) {
+              card.dataset.busy = '1';
+              setImportStatus('Импортирую карту из JSON…');
+              modalOverlay.remove();
+              stageLobbyImport({ data: parsed.data, name: parsed.mapName || parsed.name || 'Импортированная карта' });
+              globalThis.__logicArrowsLauncherOpenNewMap?.();
+              return;
+            }
+          } catch { }
+        }
+
+        // 3. Cloud Map ID / URL
         const cleanId = raw.replace(/^https?:\/\/[^/]+\/(?:map-)?/, '').replace(/^map-/, '').replace(/[?#].*$/, '').trim();
         if (!cleanId) {
           idInput.focus();
@@ -1521,7 +1634,7 @@ public static class MapBridgeScript
           if (!res.ok) throw new Error('Сервер вернул статус ' + res.status);
           const json = await res.json();
           if (!json || !json.data) throw new Error('Карта не найдена или не является публичной.');
-          stageLobbyImport({ data: json.data });
+          stageLobbyImport({ data: json.data, name: json.name });
           globalThis.__logicArrowsLauncherOpenNewMap?.();
         } catch (error) {
           card.dataset.busy = '0';
@@ -1651,6 +1764,7 @@ public static class MapBridgeScript
     upgradeSettingsDropdowns();
     addLobbyImportCard();
     addExportButton();
+    patchMapNameInput();
     tryPendingLobbyImport();
   }
 

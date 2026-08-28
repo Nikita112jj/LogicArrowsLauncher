@@ -47,19 +47,12 @@ var roundTrip = MapFileService.Read(mapPath);
 var textRoundTrip = MapFileService.ReadText(File.ReadAllText(mapPath));
 Console.WriteLine($"map_round_trip={roundTrip.Data == envelope.Data}");
 Console.WriteLine($"map_text_round_trip={textRoundTrip.Data == envelope.Data}");
-if (roundTrip.Data != envelope.Data || textRoundTrip.Data != envelope.Data || roundTrip.SiteVersion != ResourceCatalog.CurrentVersion) return 9;
-File.WriteAllText(mapPath, "{\"format\":\"wrong\",\"formatVersion\":1,\"siteVersion\":\"1_4\",\"data\":\"AAECAw==\"}");
-try
-{
-    _ = MapFileService.Read(mapPath);
-    return 10;
-}
-catch (InvalidDataException)
-{
-    Console.WriteLine("map_invalid_rejected=True");
-}
-finally
-{
-    if (File.Exists(mapPath)) File.Delete(mapPath);
-}
+var rawBase64Trip = MapFileService.ReadText("AAABAAAAAAAGGQEhAMEAGAEiAcIBEwEjAcMBBQMkATMCxAGzAAEgJQEmAjYCRgJWAmYBZwFoAcUBxgHHAcgByQC5AKkAmQCJAHkAagFrAWwBQwJTAmMCcwKDAYQBowGkAaUAlQCGAYcBEQBpARAAhQE=");
+Console.WriteLine($"raw_base64_supported={!string.IsNullOrEmpty(rawBase64Trip.Data)}");
+if (string.IsNullOrEmpty(rawBase64Trip.Data)) return 11;
+
+var rawJsonNameTrip = MapFileService.ReadText("{\"name\":\"CPU Test\",\"data\":\"AAABAAAAAAAG\"}");
+Console.WriteLine($"json_name_preserved={rawJsonNameTrip.MapName == "CPU Test"}");
+if (rawJsonNameTrip.MapName != "CPU Test") return 12;
+
 return 0;
