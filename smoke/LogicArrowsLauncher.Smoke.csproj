@@ -11,5 +11,7 @@
     <Compile Include="../src/AssetSynchronizer.cs" Link="AssetSynchronizer.cs" />
     <Compile Include="../src/UpdateStore.cs" Link="UpdateStore.cs" />
     <Compile Include="../src/MapFileService.cs" Link="MapFileService.cs" />
+    <Compile Include="../src/MapData.cs" Link="MapData.cs" />
+    <Compile Include="../src/MapOptimizer.cs" Link="MapOptimizer.cs" />
   </ItemGroup>
 </Project>

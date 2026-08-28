@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/Nikita112jj/LogicArrowsLauncher/releases/latest"><img src="https://img.shields.io/badge/Скачать-актуальный%20релиз-2f8f4e?style=for-the-badge" alt="Скачать последний релиз"></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Версия-1.2.1-7d5cff?style=for-the-badge" alt="Версия 1.2.1"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Версия-1.3.0-7d5cff?style=for-the-badge" alt="Версия 1.3.0"></a>
   <img src="https://img.shields.io/badge/Windows-x64-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows x64">
   <img src="https://img.shields.io/badge/.NET-8-512BD4?style=for-the-badge&logo=dotnet&logoColor=white" alt=".NET 8">
 </p>
@@ -24,14 +24,16 @@
 
 | Платформа | Скачать / открыть | Что внутри |
 |---|---|---|
-| **Windows x64** | [Скачать LogicArrowsLauncher.exe](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/download/v1.2.1/LogicArrowsLauncher.exe) | Готовый self-contained EXE |
+| **Windows x64** | [Скачать LogicArrowsLauncher.exe](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/download/v1.3.0/LogicArrowsLauncher.exe) | Готовый self-contained EXE |
 | **Linux** | [Открыть Linux source](linux/README.md) | Исходники и план GTK/Avalonia/Qt WebEngine-порта |
 | **macOS** | [Открыть macOS source](mac/README.md) | Исходники и план Avalonia/WKWebView-порта |
 
-Также можно открыть [полный релиз v1.2.1](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.2.1), где лежат EXE, ICO и официальная PNG-иконка игры.
+Также можно открыть [полный релиз v1.3.0](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.3.0), где лежат EXE, ICO и официальная PNG-иконка игры.
 
 ## Что умеет лаунчер
 
+- **Вкладка «Превью и Схемы»**: визуализатор карт по Base64/файлу с интерактивным холстом, зумом, панорамированием и сеткой.
+- **Умный оптимизатор схем**: сжатие пустот и промежутков, сокращение площади механизмов до 50%, генерация компактного Base64-кода.
 - Загружает **141 официальный ресурс** Logic Arrows только по HTTPS с `logic-arrows.io`.
 - На первом запуске создаёт локальный snapshot в `%LOCALAPPDATA%\\LogicArrowsLauncher\\updates\\1_4`.
 - На следующем запуске сначала проверяет только **5 ключевых файлов**, а не весь каталог.
@@ -52,7 +54,11 @@
 - Добавляет в настройки аккуратный пункт **«Тема: Системная / Тёмная / Светлая»** с применением сразу и сохранением выбора.
 - Проверяет формат, версию `1_4`, размер и Base64 до передачи карты в официальный runtime игры.
 
-## v1.2.1
+## v1.3.0
+
+В v1.3.0 добавлена новая вкладка «Превью и Схемы» с 2D-визуализатором карт (Base64/JSON/.map), встроенным алгоритмом оптимизации и сжатия механизмов, а также быстрым открытием папки с картами в Проводнике Windows.
+
+## v1.2.2
 
 В v1.2.1 исправлено применение нового названия карты при редактировании (сохраняется в локальный `mapCache` и синхронизируется с сервером), а также добавлено отображение прямой веб-ссылки на карту прямо под её названием при включении глобального/публичного режима.
 

@@ -55,4 +55,17 @@ var rawJsonNameTrip = MapFileService.ReadText("{\"name\":\"CPU Test\",\"data\":\
 Console.WriteLine($"json_name_preserved={rawJsonNameTrip.MapName == "CPU Test"}");
 if (rawJsonNameTrip.MapName != "CPU Test") return 12;
 
+var blueprint = MapCodec.Decode("AAABAAAAAAAGGQEhAMEAGAEiAcIBEwEjAcMBBQMkATMCxAGzAAEgJQEmAjYCRgJWAmYBZwFoAcUBxgHHAcgByQC5AKkAmQCJAHkAagFrAWwBQwJTAmMCcwKDAYQBowGkAaUAlQCGAYcBEQBpARAAhQE=");
+Console.WriteLine($"codec_decoded_cells={blueprint.Cells.Count}");
+if (blueprint.Cells.Count != 45) return 13;
+
+var reEncoded = MapCodec.Encode(blueprint);
+var reDecoded = MapCodec.Decode(reEncoded);
+Console.WriteLine($"codec_round_trip={reDecoded.Cells.Count == blueprint.Cells.Count}");
+if (reDecoded.Cells.Count != 45) return 14;
+
+var optResult = MapOptimizer.Optimize(blueprint);
+Console.WriteLine($"optimized_cells={optResult.OptimizedBlueprint.Cells.Count}, width={optResult.Stats.OptimizedWidth}, height={optResult.Stats.OptimizedHeight}, area_reduction={optResult.Stats.AreaReductionPercent}%");
+if (optResult.OptimizedBlueprint.Cells.Count == 0 || string.IsNullOrEmpty(optResult.OptimizedBase64)) return 15;
+
 return 0;

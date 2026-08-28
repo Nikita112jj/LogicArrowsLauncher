@@ -2,7 +2,22 @@
 
 Все заметные изменения Logic Arrows Launcher собраны в этом файле.
 
-## [1.2.1] — reliable map renaming & public map link display
+## [1.3.0] — preview studio, mechanism visualizer & smart compact optimizer
+
+### Добавлено
+
+- **Вкладка «Превью и Схемы»**: полноценная студия визуализации логических механизмов и карт прямо в лаунчере:
+  - Поддержка вставки Base64-кода, JSON или открытия `.map`-файлов.
+  - Интерактивный 2D-холст с зумом (колёсико мыши), панорамированием (перетаскивание) и отображением сетки чанков (16x16).
+  - Аутентичная отрисовка всех типов стрелок, гейтов (XOR, AND, NOT, Latch, T-FF), детекторов, источников и индикаторов.
+  - Подсказка при наведении на клетку с точными координатами `(X, Y)` и типом элемента.
+- **Алгоритм оптимизации и сжатия механизмов**:
+  - Кнопка **«⚡ Оптимизировать»**: сжимает избыточные промежутки, убирает пустоты и смещает схему в начало координат.
+  - Детальная статистика экономии площади (`-30%...50%`), экономии чанков и копирование нового компактного кода в 1 клик.
+- **Экспорт и интеграция с проводником**:
+  - Быстрое сохранение в `.map` и кнопка **«📁 Папка с картами»** для мгновенного открытия каталога в Проводнике Windows.
+
+## [1.2.2] — fix public map freeze via auto-update
 
 ### Исправлено
 
@@ -122,8 +137,9 @@
 - Официальная favicon Logic Arrows в EXE, README и Releases.
 - F11/Esc fullscreen-логика предыдущего выпуска.
 
+[1.3.0]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.3.0
+[1.2.2]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.2.2
 [1.2.1]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.2.1
-[1.2.0]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.2.0
 [1.1.5]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.1.5
 [1.1.0]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.1.0
 [1.0.9]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.9
