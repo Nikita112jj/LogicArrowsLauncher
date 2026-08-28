@@ -1,5 +1,6 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Text.Json;
 
 namespace LogicArrowsLauncher;
@@ -16,7 +17,10 @@ public sealed record UpdateInfo(
 public static class LauncherUpdater
 {
     private const string ApiUrl = "https://api.github.com/repos/Nikita112jj/LogicArrowsLauncher/releases/latest";
-    public static readonly Version CurrentVersion = new(1, 1, 5);
+    public static readonly Version CurrentVersion =
+        Assembly.GetExecutingAssembly().GetName().Version is { } v
+            ? new Version(v.Major, v.Minor, Math.Max(0, v.Build))
+            : new Version(1, 2, 0);
 
     public static async Task<UpdateInfo?> CheckForUpdatesAsync(CancellationToken cancellationToken = default)
     {

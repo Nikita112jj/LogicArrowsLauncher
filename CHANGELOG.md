@@ -2,6 +2,13 @@
 
 Все заметные изменения Logic Arrows Launcher собраны в этом файле.
 
+## [1.2.0] — modern human UI redesign & automatic GitHub updates
+
+### Добавлено
+
+- **Встроенное автообновление с GitHub**: лаунчер в фоновом режиме проверяет наличие новых версий на GitHub Releases; при наличии обновления появляется кнопка «⚡ Обновить», скачивающая новую версию в 1 клик с последующим автоматическим перезапуском.
+- **Новый чистый интерфейс**: лаконичный дизайн без визуального шума в стиле GitHub/Linear/VS Code с идеальным центрированием области загрузки и запуска на любых разрешениях экрана.
+
 ## [1.1.5] — map rename fix, base64 code import & name preservation
 
 ### Добавлено
@@ -105,6 +112,7 @@
 - Официальная favicon Logic Arrows в EXE, README и Releases.
 - F11/Esc fullscreen-логика предыдущего выпуска.
 
+[1.2.0]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.2.0
 [1.1.5]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.1.5
 [1.1.0]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.1.0
 [1.0.9]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.9

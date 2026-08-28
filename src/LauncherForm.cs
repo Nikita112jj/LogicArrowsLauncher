@@ -14,7 +14,7 @@ public sealed class LauncherForm : Form
     private const int WM_SETFOCUS = 0x0007;
     private const int WM_ACTIVATEAPP = 0x001C;
     private const string RepositoryUrl = "https://github.com/Nikita112jj/LogicArrowsLauncher";
-    private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.1.5";
+    private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.2.0";
 
     // Header Controls
     private readonly Panel header = new();
@@ -324,7 +324,7 @@ public sealed class LauncherForm : Form
         versionLabel.AutoSize = true;
         versionLabel.ForeColor = Color.FromArgb(139, 148, 158);
         versionLabel.Font = new Font("Segoe UI", 8.5F);
-        versionLabel.Text = "v1.1.5  •  Windows x64  •  ";
+        versionLabel.Text = $"v{LauncherUpdater.CurrentVersion.Major}.{LauncherUpdater.CurrentVersion.Minor}.{LauncherUpdater.CurrentVersion.Build}  •  Windows x64  •  ";
 
         checkUpdatesLink.AutoSize = true;
         checkUpdatesLink.LinkColor = Color.FromArgb(88, 166, 255);
@@ -412,7 +412,7 @@ public sealed class LauncherForm : Form
             else
             {
                 MessageBox.Show(
-                    "У вас установлена последняя версия лаунчера (v1.1.5).",
+                    $"У вас установлена последняя версия лаунчера (v{LauncherUpdater.CurrentVersion.Major}.{LauncherUpdater.CurrentVersion.Minor}.{LauncherUpdater.CurrentVersion.Build}).",
                     "Обновлений нет",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
