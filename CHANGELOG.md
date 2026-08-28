@@ -2,6 +2,17 @@
 
 Все заметные изменения Logic Arrows Launcher собраны в этом файле.
 
+## [1.1.5] — map rename fix, base64 code import & name preservation
+
+### Добавлено
+
+- **Прямой импорт Base64-кода**: в окно импорта карт теперь можно напрямую вставлять чистую строку кода карты (начиная с `AAAB...` или Base64) — карта создаётся и открывается мгновенно без запросов к серверу.
+- **Сохранение имени карты при импорте**: при загрузке карты из `.map`-файла, JSON или из облака по ID/ссылке её оригинальное название корректно устанавливается в созданном мире и сохраняется в базе данных игры.
+
+### Исправлено
+
+- **Переименование карты**: изолирован ввод с клавиатуры в полях ввода названия (`.ui-menu-map-name-input`) и модальных окнах — горячие клавиши игры (пауза пробелом, поворот на R, цифры) больше не блокируют ввод и не сбивают фокус на холст. Сохранение имени происходит мгновенно по нажатию Enter или при потере фокуса.
+
 ## [1.1.0] — public map import & modal
 
 ### Добавлено
@@ -94,6 +105,7 @@
 - Официальная favicon Logic Arrows в EXE, README и Releases.
 - F11/Esc fullscreen-логика предыдущего выпуска.
 
+[1.1.5]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.1.5
 [1.1.0]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.1.0
 [1.0.9]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.9
 [1.0.7]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.0.7
