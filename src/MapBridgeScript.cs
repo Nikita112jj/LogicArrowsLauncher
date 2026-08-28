@@ -1992,74 +1992,307 @@ public static class MapBridgeScript
     return globalThis.btoa(binary);
   }
 
-  function optimizeCells(cells) {
-    if (!cells || cells.length === 0) return { cells: [], base64: '', stats: {} };
-    const mapByCoord = new Map();
-    for (const c of cells) {
-      mapByCoord.set(`${c.x},${c.y}`, { ...c });
+  // === Умный оптимизатор v2 — точные правила движка игры (bundle.js v1.4) ===
+  // Понимает механику всех типов стрелок: офсеты передачи, прыжки на 2 клетки
+  // (сплиттеры и синие стрелки), детектор (читает клетку сзади), блокер (гасит
+  // стрелку перед собой), NOT-гейт (без входа постоянно выдаёт сигнал —
+  // скрытый источник), AND и защёлку (нужны 2 одновременных входа).
+  const LA_OFF = {
+    1: [[-1, 0]], 2: [[-1, 0], [0, 1], [1, 0], [0, -1]], 3: [], 4: [[-1, 0]], 5: [[-1, 0]],
+    6: [[-1, 0], [1, 0]], 7: [[-1, 0], [0, 1]], 8: [[-1, 0], [0, 1], [0, -1]],
+    9: [[-1, 0], [0, 1], [1, 0], [0, -1]], 10: [[-2, 0]], 11: [[-1, 1]], 12: [[-1, 0], [-2, 0]],
+    13: [[-2, 0], [0, 1]], 14: [[-1, 0], [-1, 1]], 15: [[-1, 0]], 16: [[-1, 0]], 17: [[-1, 0]],
+    18: [[-1, 0]], 19: [[-1, 0]], 20: [[-1, 0]], 21: [[-1, 0], [0, 1], [1, 0], [0, -1]],
+    22: [[-1, 0]], 24: [[-1, 0]]
+  };
+  // Источники: сигнал есть без входа. 2 — источник, 9 — генератор (взводится сам),
+  // 21/24 — кнопки (пользователь нажимает).
+  const LA_SOURCES = new Set([2, 9, 21, 24]);
+  // AND (16) и защёлка (18) требуют два одновременных входных импульса.
+  const LA_MIN_INPUTS = { 16: 2, 18: 2 };
+
+  // Цель смещения в глобальных координатах (реплика h() из бандла игры).
+  function laRelTarget(cell, dx, dy) {
+    const c = cell.flipped ? -dy : dy;
+    const r = cell.rotation & 3;
+    if (r === 0) return [cell.x + c, cell.y + dx];
+    if (r === 1) return [cell.x - dx, cell.y + c];
+    if (r === 2) return [cell.x - c, cell.y - dx];
+    return [cell.x + dx, cell.y - c];
+  }
+
+  // Смещения-«выходы» (что клетка делает с миром): передача + гашение блокера.
+  function laOutOffsets(cell) {
+    const list = (LA_OFF[cell.type] || []).slice();
+    if (cell.type === 3) list.push([-1, 0]);
+    return list;
+  }
+
+  // Все механически значимые смещения: выходы + вход детектора сзади.
+  function laMechOffsets(cell) {
+    const list = laOutOffsets(cell);
+    if (cell.type === 5) list.push([1, 0]);
+    return list;
+  }
+
+  function laKey(x, y) { return x + ',' + y; }
+
+  function laBuildIndex(cells) {
+    const byKey = new Map();
+    for (const c of cells) byKey.set(laKey(c.x, c.y), c);
+    return byKey;
+  }
+
+  function laOutTargets(cell, byKey) {
+    const out = [];
+    for (const [dx, dy] of laOutOffsets(cell)) {
+      const [tx, ty] = laRelTarget(cell, dx, dy);
+      const t = byKey.get(laKey(tx, ty));
+      if (t) out.push(t);
     }
-    const cleanCells = Array.from(mapByCoord.values());
+    return out;
+  }
 
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const c of cleanCells) {
-      if (c.x < minX) minX = c.x;
-      if (c.x > maxX) maxX = c.x;
-      if (c.y < minY) minY = c.y;
-      if (c.y > maxY) maxY = c.y;
-    }
-    const origW = Math.max(1, maxX - minX + 1);
-    const origH = Math.max(1, maxY - minY + 1);
-    const origArea = origW * origH;
-
-    for (const c of cleanCells) {
-      c.x -= minX;
-      c.y -= minY;
-    }
-
-    const usedX = Array.from(new Set(cleanCells.map(c => c.x))).sort((a, b) => a - b);
-    const usedY = Array.from(new Set(cleanCells.map(c => c.y))).sort((a, b) => a - b);
-
-    const mapX = new Map();
-    let newX = 1;
-    for (let i = 0; i < usedX.length; i++) {
-      if (i > 0) newX += Math.min(usedX[i] - usedX[i - 1], 1);
-      mapX.set(usedX[i], newX);
-    }
-
-    const mapY = new Map();
-    let newY = 1;
-    for (let i = 0; i < usedY.length; i++) {
-      if (i > 0) newY += Math.min(usedY[i] - usedY[i - 1], 1);
-      mapY.set(usedY[i], newY);
-    }
-
-    for (const c of cleanCells) {
-      if (mapX.has(c.x)) c.x = mapX.get(c.x);
-      if (mapY.has(c.y)) c.y = mapY.get(c.y);
-    }
-
-    let optMinX = Infinity, optMinY = Infinity, optMaxX = -Infinity, optMaxY = -Infinity;
-    for (const c of cleanCells) {
-      if (c.x < optMinX) optMinX = c.x;
-      if (c.x > optMaxX) optMaxX = c.x;
-      if (c.y < optMinY) optMinY = c.y;
-      if (c.y > optMaxY) optMaxY = c.y;
-    }
-    const optW = Math.max(1, optMaxX - optMinX + 1);
-    const optH = Math.max(1, optMaxY - optMinY + 1);
-    const optArea = optW * optH;
-    const reduction = Math.max(0, Math.round((1.0 - optArea / origArea) * 1000) / 10);
-
-    const base64 = encodeBase64Map(cleanCells);
-    return {
-      cells: cleanCells,
-      base64,
-      stats: {
-        origW, origH, origCells: cells.length,
-        optW, optH, optCells: cleanCells.length,
-        reduction
+  // Клетки, которые могут хоть когда-нибудь сработать (сигнал === REQ типа).
+  function laComputeFiring(cells, byKey, inEdges) {
+    const live = new Set();
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const c of cells) {
+        if (live.has(c)) continue;
+        let ok;
+        if (LA_SOURCES.has(c.type) || c.type === 15 || c.type === 23) ok = true;
+        else if (c.type === 5) {
+          const [bx, by] = laRelTarget(c, 1, 0);
+          const behind = byKey.get(laKey(bx, by));
+          ok = !!behind && live.has(behind);
+        } else {
+          const senders = inEdges.get(c) || [];
+          let active = 0;
+          for (const s of senders) if (live.has(s)) active++;
+          ok = active >= (LA_MIN_INPUTS[c.type] || 1);
+        }
+        if (ok) { live.add(c); changed = true; }
       }
+    }
+    return live;
+  }
+
+  function laBuildGraph(cells) {
+    const byKey = laBuildIndex(cells);
+    const inEdges = new Map();
+    for (const c of cells) {
+      for (const t of laOutTargets(c, byKey)) {
+        if (!inEdges.has(t)) inEdges.set(t, []);
+        inEdges.get(t).push(c);
+      }
+    }
+    return { byKey, inEdges };
+  }
+
+  // Безопасная чистка: удалить клетки, которые никогда не сработают.
+  function laSafePrune(cells) {
+    let alive = cells.slice();
+    const removed = [];
+    while (true) {
+      const { byKey, inEdges } = laBuildGraph(alive);
+      const live = laComputeFiring(alive, byKey, inEdges);
+      if (live.size === alive.length) return { kept: alive, removed };
+      const next = [];
+      for (const c of alive) (live.has(c) ? next : removed).push(c);
+      alive = next;
+    }
+  }
+
+  // Глубокая чистка: срезать клетки, чей сигнал ни к кому не приходит.
+  function laDeepTrim(cells) {
+    let alive = cells.slice();
+    const removed = [];
+    let changed = true;
+    while (changed) {
+      changed = false;
+      const byKey = laBuildIndex(alive);
+      const next = [];
+      for (const c of alive) {
+        let hasEffect = c.type === 23; // цель уровня не срезаем
+        if (!hasEffect) {
+          for (const [dx, dy] of laOutOffsets(c)) {
+            const [tx, ty] = laRelTarget(c, dx, dy);
+            if (byKey.has(laKey(tx, ty))) { hasEffect = true; break; }
+          }
+        }
+        if (hasEffect) next.push(c);
+        else { removed.push(c); changed = true; }
+      }
+      alive = next;
+    }
+    return { kept: alive, removed };
+  }
+
+  // Сжатие пустот с сохранением ВСЕХ связей: удаляем пустые столбцы/ряды,
+  // затем точно проверяем, что (а) каждая связь сохранила смещение и
+  // (б) пустые цели смещений остались пустыми. Нарушения чиним возвратом
+  // отдельных столбцов/рядов — расстояния-прыжки и тайминги не меняются.
+  function laCompact(cells) {
+    const n = cells.length;
+    if (n === 0) return { ok: true, deletedCols: 0, deletedRows: 0 };
+    const xs = new Set(), ys = new Set();
+    for (const c of cells) { xs.add(c.x); ys.add(c.y); }
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+
+    const Sx = new Set(), Sy = new Set();
+    for (let x = minX; x <= maxX; x++) if (!xs.has(x)) Sx.add(x);
+    for (let y = minY; y <= maxY; y++) if (!ys.has(y)) Sy.add(y);
+
+    const byKey = laBuildIndex(cells);
+    const consOcc = [], consVoid = [];
+    for (const c of cells) {
+      for (const [dx, dy] of laMechOffsets(c)) {
+        const [px, py] = laRelTarget(c, dx, dy);
+        const K = byKey.get(laKey(px, py));
+        if (K) consOcc.push({ a: c, b: K, ox: px - c.x, oy: py - c.y });
+        else consVoid.push({ a: c, ox: px - c.x, oy: py - c.y });
+      }
+    }
+
+    const less = (arr, v) => { let n2 = 0; for (const s of arr) if (s < v) n2++; return n2; };
+    let arrX = [...Sx].sort((p, q) => p - q);
+    let arrY = [...Sy].sort((p, q) => p - q);
+    const Mx = v => v - less(arrX, v);
+    const My = v => v - less(arrY, v);
+
+    const repairBetween = (a, b) => {
+      const loX = Math.min(a.x, b.x), hiX = Math.max(a.x, b.x);
+      for (let g = loX; g < hiX; g++) if (Sx.has(g)) { Sx.delete(g); arrX = [...Sx].sort((p, q) => p - q); return true; }
+      const loY = Math.min(a.y, b.y), hiY = Math.max(a.y, b.y);
+      for (let g = loY; g < hiY; g++) if (Sy.has(g)) { Sy.delete(g); arrY = [...Sy].sort((p, q) => p - q); return true; }
+      return false;
     };
+
+    for (let iter = 0; iter < 200000; iter++) {
+      let fail = null;
+      for (const { a, b, ox, oy } of consOcc) {
+        if (Mx(b.x) - Mx(a.x) !== ox || My(b.y) - My(a.y) !== oy) { fail = { pair: [a, b] }; break; }
+      }
+      if (!fail) {
+        const img = new Map();
+        for (const k of cells) img.set(Mx(k.x) + ',' + My(k.y), k);
+        for (const { a, ox, oy } of consVoid) {
+          const hit = img.get((Mx(a.x) + ox) + ',' + (My(a.y) + oy));
+          if (hit) { fail = { pair: [a, hit] }; break; }
+        }
+      }
+      if (!fail) break;
+      if (!repairBetween(fail.pair[0], fail.pair[1])) return { ok: false, deletedCols: 0, deletedRows: 0 };
+    }
+
+    for (const c of cells) { c.x = Mx(c.x); c.y = My(c.y); }
+    return { ok: true, deletedCols: arrX.length, deletedRows: arrY.length };
+  }
+
+  // Нормализация: сдвиг min(X,Y) в (1,1).
+  function laNormalize(cells) {
+    if (cells.length === 0) return;
+    let minX = Infinity, minY = Infinity;
+    for (const c of cells) { if (c.x < minX) minX = c.x; if (c.y < minY) minY = c.y; }
+    for (const c of cells) { c.x -= minX - 1; c.y -= minY - 1; }
+  }
+
+  // «Дальние связи» (прыжки на 2 клетки), сохранённые в схеме.
+  function laCountLongLinks(cells) {
+    const byKey = laBuildIndex(cells);
+    let n = 0;
+    for (const c of cells) {
+      for (const [dx, dy] of laMechOffsets(c)) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) >= 2) {
+          const [tx, ty] = laRelTarget(c, dx, dy);
+          if (byKey.has(laKey(tx, ty))) n++;
+        }
+      }
+    }
+    return n;
+  }
+
+  function laBBox(cells) {
+    if (cells.length === 0) return { w: 0, h: 0 };
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const c of cells) {
+      if (c.x < minX) minX = c.x; if (c.x > maxX) maxX = c.x;
+      if (c.y < minY) minY = c.y; if (c.y > maxY) maxY = c.y;
+    }
+    return { w: maxX - minX + 1, h: maxY - minY + 1 };
+  }
+
+  function optimizeCells(cells, options) {
+    const opts = options || {};
+    const warnings = [];
+    const stats = {
+      origCells: cells.length, removedDead: 0, removedDangling: 0,
+      prunedCancelled: false, deletedCols: 0, deletedRows: 0,
+      longLinks: 0, origW: 0, origH: 0, optW: 0, optH: 0,
+      reduction: 0, optCells: 0, duplicateCells: 0
+    };
+
+    if (!cells || cells.length === 0) return { cells: [], base64: '', stats, warnings };
+
+    // 0. Дедупликация координат (последняя побеждает).
+    const byCoord = new Map();
+    for (const c of cells) byCoord.set(laKey(c.x, c.y), { ...c });
+    let work = Array.from(byCoord.values());
+    stats.duplicateCells = cells.length - work.length;
+
+    const bbox0 = laBBox(work);
+    stats.origW = bbox0.w; stats.origH = bbox0.h;
+    const origArea = Math.max(1, bbox0.w * bbox0.h);
+
+    // 1. Безопасная чистка: никогда не срабатывающие механизмы.
+    let result = laSafePrune(work);
+    stats.removedDead = result.removed.length;
+
+    // Защита: если чистка удалила ВСЁ — в схеме нет источников сигнала.
+    // Скорее всего это особенность схемы — отменяем удаление.
+    if (result.kept.length === 0 && work.length > 0) {
+      warnings.push('В схеме не найдено ни одного работающего источника сигнала (источник, генератор, кнопка или NOT без входа). Чистка отменена — удалён 0 блоков.');
+      stats.prunedCancelled = true;
+      result = { kept: work.slice(), removed: [] };
+      stats.removedDead = 0;
+    }
+
+    // 2. Глубокая чистка (по галочке): висячие выходы.
+    if (opts.deep && result.kept.length > 0) {
+      const deep = laDeepTrim(result.kept);
+      stats.removedDangling = deep.removed.length;
+      result = { kept: deep.kept, removed: result.removed };
+      if (deep.removed.length > 0) {
+        warnings.push('Глубокая чистка срезала ' + deep.removed.length + ' блок(ов) с висячими выходами (сигнал ни к кому не приходил).');
+      }
+    }
+
+    work = result.kept;
+
+    // 3. Сжатие пустот с сохранением связей и таймингов.
+    if (work.length > 0) {
+      const comp = laCompact(work);
+      if (comp.ok) {
+        stats.deletedCols = comp.deletedCols;
+        stats.deletedRows = comp.deletedRows;
+      } else {
+        warnings.push('Сжатие пропущено: не удалось гарантировать сохранность всех связей.');
+      }
+      laNormalize(work);
+    }
+
+    const bbox1 = laBBox(work);
+    stats.optW = bbox1.w; stats.optH = bbox1.h;
+    const optArea = Math.max(1, bbox1.w * bbox1.h);
+    stats.reduction = Math.max(0, Math.round((1 - optArea / origArea) * 1000) / 10);
+    stats.optCells = work.length;
+    stats.longLinks = laCountLongLinks(work);
+
+    const base64 = work.length > 0 ? encodeBase64Map(work) : '';
+    return { cells: work, base64, stats, warnings };
   }
 
   function getArrowColor(type) {
@@ -2148,7 +2381,7 @@ public static class MapBridgeScript
           </button>
           <input type="file" id="logic-preview-file-input" accept=".map,.json,.txt" style="display:none;">
           
-          <button type="button" id="logic-preview-opt-btn" title="Сжать схему и убрать пустоты" style="display:flex;align-items:center;gap:5px;background:#238636;color:#fff;border:1px solid #2ea043;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:bold;">
+          <button type="button" id="logic-preview-opt-btn" title="Анализ связей: удалить мёртвые механизмы и сжать пустоты, не ломая схему" style="display:flex;align-items:center;gap:5px;background:#238636;color:#fff;border:1px solid #2ea043;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:bold;">
             <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m15 15 6 6m-6-6v4.8m0-4.8h4.8"></path><path d="M9 15 3 21m6-6v4.8m0-4.8H4.2"></path><path d="M15 9l6-6m-6 6V4.2m0 4.8h4.8"></path><path d="M9 9 3 3m6 6V4.2m0 4.8H4.2"></path></svg>
             Уменьшить схему
           </button>
@@ -2187,9 +2420,13 @@ public static class MapBridgeScript
             <div style="background:#13161d;border:1px solid #2d3544;border-radius:8px;padding:10px 12px;">
               <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#3fb950;margin-bottom:6px;">
                 <svg viewBox="0 0 24 24" width="14" height="14" stroke="#3fb950" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m15 15 6 6m-6-6v4.8m0-4.8h4.8"></path><path d="M9 15 3 21m6-6v4.8m0-4.8H4.2"></path><path d="M15 9l6-6m-6 6V4.2m0 4.8h4.8"></path><path d="M9 9 3 3m6 6V4.2m0 4.8H4.2"></path></svg>
-                Оптимизация
+                Оптимизация v2
               </div>
-              <div id="logic-preview-opt-info" style="font-size:12px;color:#8ea0be;line-height:1.5;">Нажмите «Уменьшить схему», чтобы сжать пустоты и промежутки.</div>
+              <label style="display:flex;align-items:flex-start;gap:6px;font-size:11.5px;color:#8ea0be;cursor:pointer;margin-bottom:8px;line-height:1.4;">
+                <input type="checkbox" id="logic-preview-deep-chk" style="accent-color:#3fb950;margin-top:1px;">
+                <span>Срезать висячие выходы — <b style="color:#e3b341;">агрессивно</b>: удаляет цепочки, чей сигнал ни к кому не приходит (в т.ч. индикаторные концы)</span>
+              </label>
+              <div id="logic-preview-opt-info" style="font-size:12px;color:#8ea0be;line-height:1.5;">Анализирует сигнальные связи схемы: удаляет мёртвые механизмы и сжимает пустоты, не ломая соединения (прыжки, сплиттеры, тайминги).</div>
               <button type="button" id="logic-preview-copy-btn" style="display:none;width:100%;margin-top:8px;background:#1f6feb;color:#fff;border:none;border-radius:6px;padding:7px;cursor:pointer;font-size:12px;font-weight:bold;">📋 Скопировать код</button>
             </div>
 
@@ -2452,15 +2689,32 @@ public static class MapBridgeScript
         alert('Сначала вставьте или загрузите код схемы.');
         return;
       }
-      lastOpt = optimizeCells(currentCells);
+      const deepChk = document.getElementById('logic-preview-deep-chk');
+      lastOpt = optimizeCells(currentCells, { deep: !!(deepChk && deepChk.checked) });
       currentCells = lastOpt.cells;
       input.value = lastOpt.base64;
-      optInfoDiv.innerHTML = `
-        • До: <b>${lastOpt.stats.origW}×${lastOpt.stats.origH}</b> ➔ После: <b>${lastOpt.stats.optW}×${lastOpt.stats.optH}</b><br>
-        • Экономия площади: <b style="color:#3fb950">-${lastOpt.stats.reduction}%</b><br>
-        • Блоков: <b>${lastOpt.stats.optCells}</b> (смещено в 0,0)
-      `;
-      copyBtn.style.display = 'block';
+      const st = lastOpt.stats;
+      let html = '';
+      if (currentCells.length === 0) {
+        html += '<div style="color:#ff7b72;font-weight:600;margin-bottom:4px;">Схема оптимизирована в пустоту</div>' +
+          '<div style="font-size:11.5px;">Каждый её блок либо никогда не сработал бы, либо его сигнал никуда не приходил.</div>';
+      } else {
+        html += '• Размер: <b>' + st.origW + '×' + st.origH + '</b> ➔ <b>' + st.optW + '×' + st.optH + '</b>' +
+          ' <b style="color:#3fb950">(-' + st.reduction + '%)</b><br>' +
+          '• Блоков: <b>' + st.origCells + '</b> ➔ <b>' + st.optCells + '</b><br>';
+        if (st.removedDead > 0) html += '• 🧹 Мёртвых механизмов удалено: <b style="color:#ff7b72">' + st.removedDead + '</b> (никогда не сработали бы)<br>';
+        if (st.removedDangling > 0) html += '• ✂️ Висячих выходов срезано: <b style="color:#e3b341">' + st.removedDangling + '</b><br>';
+        if (st.duplicateCells > 0) html += '• Дубликатов координат: <b>' + st.duplicateCells + '</b><br>';
+        if (st.deletedCols > 0 || st.deletedRows > 0) html += '• Сжато: столбцов <b>' + st.deletedCols + '</b>, рядов <b>' + st.deletedRows + '</b><br>';
+        if (st.longLinks > 0) html += '• Дальние связи (прыжки) сохранены: <b>' + st.longLinks + '</b><br>';
+      }
+      if (lastOpt.warnings && lastOpt.warnings.length > 0) {
+        for (const wtext of lastOpt.warnings) {
+          html += '<div style="background:#2d2513;border:1px solid #5a4a1c;border-radius:6px;padding:6px 8px;margin-top:6px;color:#e3b341;font-size:11.5px;line-height:1.4;">⚠️ ' + wtext + '</div>';
+        }
+      }
+      optInfoDiv.innerHTML = html;
+      copyBtn.style.display = lastOpt.base64 ? 'block' : 'none';
       resetView();
     });
 

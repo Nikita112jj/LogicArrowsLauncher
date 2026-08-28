@@ -21,3 +21,4 @@ assets/*.webp
 .idea/
 .DS_Store
 Thumbs.db
+smoke-test.map
