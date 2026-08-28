@@ -2,7 +2,6 @@ using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 using System.Diagnostics;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -17,37 +16,39 @@ public sealed class LauncherForm : Form
     private const string RepositoryUrl = "https://github.com/Nikita112jj/LogicArrowsLauncher";
     private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.1.5";
 
-    private readonly RoundedPanel header = new();
-    private readonly Label headerLogo = new();
+    // Header Controls
+    private readonly Panel header = new();
+    private readonly Label headerTitle = new();
     private readonly Label headerSubtitle = new();
-    private readonly PillBadge statusBadge = new();
     private readonly RoundedButton updateButton = new();
     private readonly RoundedButton githubButton = new();
     private readonly RoundedButton changelogButton = new();
 
+    // Game WebView & Main Screen
     private readonly WebView2 webView = new();
     private readonly Panel loadingOverlay = new();
-    private readonly RoundedPanel loadingCard = new();
+    private readonly RoundedPanel centerCard = new();
 
-    private readonly Label heroTitle = new();
-    private readonly Label heroSubtitle = new();
-    private readonly Panel badgesRow = new();
+    // Card Content Controls
+    private readonly Label cardTitle = new();
+    private readonly Label cardSubtitle = new();
 
     private readonly Label loadingStatus = new();
     private readonly Label loadingFile = new();
     private readonly RoundedProgressBar loadingProgress = new();
     private readonly Label loadingCount = new();
+
     private readonly RoundedButton playButton = new();
 
-    private readonly RoundedPanel updateBanner = new();
-    private readonly Label updateBannerTitle = new();
-    private readonly Label updateBannerNotes = new();
-    private readonly RoundedButton updateBannerBtn = new();
+    private readonly RoundedPanel updateNoticePanel = new();
+    private readonly Label updateNoticeLabel = new();
+    private readonly RoundedButton updateNoticeBtn = new();
 
-    private readonly Label loadingError = new();
-    private readonly Label loadingVersion = new();
+    private readonly Label errorLabel = new();
+    private readonly Label versionLabel = new();
     private readonly LinkLabel checkUpdatesLink = new();
 
+    // Logic & Services
     private AssetSynchronizer? synchronizer;
     private LocalResourceInterceptor? interceptor;
     private CoreWebView2Controller? webViewController;
@@ -59,7 +60,6 @@ public sealed class LauncherForm : Form
     private FormWindowState launcherWindowState;
     private Rectangle launcherBounds;
     private TaskCompletionSource<bool>? gamePageReadySignal;
-    private bool gamePageReady;
     private bool exportInProgress;
     private bool lobbyImportInProgress;
     private int focusRequestId;
@@ -72,9 +72,9 @@ public sealed class LauncherForm : Form
     {
         Text = "Logic Arrows Launcher";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(960, 680);
-        ClientSize = new Size(1280, 820);
-        BackColor = Color.FromArgb(11, 14, 20);
+        MinimumSize = new Size(860, 600);
+        ClientSize = new Size(1100, 720);
+        BackColor = Color.FromArgb(13, 17, 23);
         ShowIcon = true;
         try
         {
@@ -92,11 +92,14 @@ public sealed class LauncherForm : Form
         launcherBounds = Bounds;
 
         BuildHeader();
+        BuildCenterCard();
         BuildLoadingOverlay();
 
         webView.Dock = DockStyle.Fill;
         webView.Visible = false;
 
+        // Correct docking order in WinForms:
+        // Header docked Top, WebView & loadingOverlay docked Fill
         Controls.Add(webView);
         Controls.Add(loadingOverlay);
         Controls.Add(header);
@@ -111,78 +114,73 @@ public sealed class LauncherForm : Form
     private void BuildHeader()
     {
         header.Dock = DockStyle.Top;
-        header.Height = 72;
-        header.BackColor = Color.FromArgb(18, 24, 36);
-        header.BorderColor = Color.FromArgb(36, 48, 72);
-        header.BorderThickness = 1;
-        header.CornerRadius = 0;
-        header.Padding = new Padding(24, 12, 20, 12);
+        header.Height = 60;
+        header.BackColor = Color.FromArgb(22, 27, 34);
+        header.Padding = new Padding(20, 10, 20, 10);
+        header.Paint += (_, e) =>
+        {
+            // Subtle 1px bottom border
+            using var pen = new Pen(Color.FromArgb(48, 54, 61), 1);
+            e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
+        };
 
-        var headerLayout = new TableLayoutPanel
+        var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 6,
+            ColumnCount = 5,
             RowCount = 1,
             BackColor = Color.Transparent,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
         };
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Logo + Title
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Pill Badge
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F)); // Spacer
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Update button
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // GitHub
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Changelog
-        headerLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Title & Subtitle
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F)); // Spacer
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Update
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // GitHub
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Changelog
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-        var logoBox = new Panel
+        var titleBox = new Panel
         {
             AutoSize = true,
             BackColor = Color.Transparent,
-            Margin = new Padding(0, 4, 16, 0),
+            Margin = new Padding(0, 2, 16, 0),
         };
 
-        headerLogo.AutoSize = true;
-        headerLogo.ForeColor = Color.FromArgb(240, 246, 255);
-        headerLogo.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-        headerLogo.Location = new Point(0, 0);
-        headerLogo.Text = "⚡ LOGIC ARROWS";
+        headerTitle.AutoSize = true;
+        headerTitle.ForeColor = Color.FromArgb(240, 246, 252);
+        headerTitle.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+        headerTitle.Location = new Point(0, 0);
+        headerTitle.Text = "Logic Arrows";
 
         headerSubtitle.AutoSize = true;
-        headerSubtitle.ForeColor = Color.FromArgb(100, 116, 145);
-        headerSubtitle.Font = new Font("Segoe UI", 8F, FontStyle.Bold);
-        headerSubtitle.Location = new Point(2, 22);
-        headerSubtitle.Text = "DESKTOP LAUNCHER";
+        headerSubtitle.ForeColor = Color.FromArgb(139, 148, 158);
+        headerSubtitle.Font = new Font("Segoe UI", 8.5F);
+        headerSubtitle.Location = new Point(0, 20);
+        headerSubtitle.Text = "Лаунчер";
 
-        logoBox.Controls.Add(headerLogo);
-        logoBox.Controls.Add(headerSubtitle);
+        titleBox.Controls.Add(headerTitle);
+        titleBox.Controls.Add(headerSubtitle);
 
-        statusBadge.Text = "Актуальная версия";
-        statusBadge.BadgeColor = Color.FromArgb(16, 185, 129);
-        statusBadge.BackgroundColor = Color.FromArgb(12, 38, 28);
-        statusBadge.BorderColor = Color.FromArgb(22, 101, 52);
-        statusBadge.Margin = new Padding(0, 10, 0, 0);
-
-        ConfigureHeaderButton(updateButton, "⚡ Обновить", new Size(130, 38), Color.FromArgb(14, 116, 144));
-        updateButton.GradientEndColor = Color.FromArgb(2, 132, 199);
+        ConfigureHeaderButton(updateButton, "⚡ Обновить", new Size(125, 34), Color.FromArgb(31, 111, 235));
+        updateButton.BorderColor = Color.FromArgb(56, 139, 253);
         updateButton.ForeColor = Color.White;
         updateButton.Visible = false;
         updateButton.Click += (_, _) => TriggerAutoUpdate();
 
-        ConfigureHeaderButton(githubButton, "GitHub", new Size(110, 38), Color.FromArgb(28, 36, 52));
+        ConfigureHeaderButton(githubButton, "GitHub", new Size(95, 34), Color.FromArgb(33, 38, 45));
         githubButton.Image = LoadEmbeddedImage("LogicArrowsLauncher.github-invertocat-white.png");
         githubButton.Click += (_, _) => OpenExternalUrl(RepositoryUrl);
 
-        ConfigureHeaderButton(changelogButton, "Релизы", new Size(100, 38), Color.FromArgb(28, 36, 52));
+        ConfigureHeaderButton(changelogButton, "Релизы", new Size(90, 34), Color.FromArgb(33, 38, 45));
         changelogButton.Click += (_, _) => OpenExternalUrl(ReleaseUrl);
 
-        headerLayout.Controls.Add(logoBox, 0, 0);
-        headerLayout.Controls.Add(statusBadge, 1, 0);
-        headerLayout.Controls.Add(new Panel { BackColor = Color.Transparent }, 2, 0);
-        headerLayout.Controls.Add(updateButton, 3, 0);
-        headerLayout.Controls.Add(githubButton, 4, 0);
-        headerLayout.Controls.Add(changelogButton, 5, 0);
-        header.Controls.Add(headerLayout);
+        layout.Controls.Add(titleBox, 0, 0);
+        layout.Controls.Add(new Panel { BackColor = Color.Transparent }, 1, 0);
+        layout.Controls.Add(updateButton, 2, 0);
+        layout.Controls.Add(githubButton, 3, 0);
+        layout.Controls.Add(changelogButton, 4, 0);
+        header.Controls.Add(layout);
     }
 
     private static void ConfigureHeaderButton(RoundedButton button, string text, Size size, Color color)
@@ -190,201 +188,192 @@ public sealed class LauncherForm : Form
         button.Text = text;
         button.Size = size;
         button.Dock = DockStyle.Fill;
-        button.Margin = new Padding(6, 4, 0, 4);
+        button.Margin = new Padding(6, 3, 0, 3);
         button.FlatStyle = FlatStyle.Flat;
         button.FlatAppearance.BorderSize = 0;
-        button.ForeColor = Color.FromArgb(225, 235, 250);
+        button.ForeColor = Color.FromArgb(201, 209, 217);
         button.BackColor = color;
-        button.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-        button.CornerRadius = 10;
-        button.BorderColor = Color.FromArgb(48, 62, 90);
+        button.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+        button.CornerRadius = 6;
+        button.BorderColor = Color.FromArgb(48, 54, 61);
         button.BorderThickness = 1;
+        button.HoverBackColor = Color.FromArgb(48, 54, 61);
         button.Cursor = Cursors.Hand;
     }
 
-    private void BuildLoadingOverlay()
+    private void BuildCenterCard()
     {
-        loadingOverlay.Dock = DockStyle.Fill;
-        loadingOverlay.BackColor = Color.FromArgb(11, 14, 20);
-        loadingOverlay.Visible = true;
-        loadingOverlay.Padding = new Padding(24);
+        centerCard.Size = new Size(560, 420);
+        centerCard.BackColor = Color.FromArgb(22, 27, 34);
+        centerCard.BorderColor = Color.FromArgb(48, 54, 61);
+        centerCard.BorderThickness = 1;
+        centerCard.CornerRadius = 12;
 
-        loadingCard.Size = new Size(720, 540);
-        loadingCard.BackColor = Color.FromArgb(19, 25, 38);
-        loadingCard.GradientEndColor = Color.FromArgb(14, 18, 28);
-        loadingCard.BorderColor = Color.FromArgb(42, 56, 82);
-        loadingCard.BorderThickness = 1;
-        loadingCard.CornerRadius = 22;
-        loadingOverlay.Controls.Add(loadingCard);
+        cardTitle.AutoSize = false;
+        cardTitle.ForeColor = Color.FromArgb(240, 246, 252);
+        cardTitle.Font = new Font("Segoe UI", 18F, FontStyle.Bold);
+        cardTitle.TextAlign = ContentAlignment.MiddleCenter;
+        cardTitle.Bounds = new Rectangle(20, 30, 520, 36);
+        cardTitle.Text = "Logic Arrows";
 
-        heroTitle.AutoSize = false;
-        heroTitle.ForeColor = Color.White;
-        heroTitle.Font = new Font("Segoe UI", 22F, FontStyle.Bold);
-        heroTitle.TextAlign = ContentAlignment.MiddleCenter;
-        heroTitle.Bounds = new Rectangle(30, 26, 660, 44);
-        heroTitle.Text = "LOGIC ARROWS";
+        cardSubtitle.AutoSize = false;
+        cardSubtitle.ForeColor = Color.FromArgb(139, 148, 158);
+        cardSubtitle.Font = new Font("Segoe UI", 9.5F);
+        cardSubtitle.TextAlign = ContentAlignment.MiddleCenter;
+        cardSubtitle.Bounds = new Rectangle(20, 68, 520, 22);
+        cardSubtitle.Text = "Официальный клиент игры";
 
-        heroSubtitle.AutoSize = false;
-        heroSubtitle.ForeColor = Color.FromArgb(148, 163, 184);
-        heroSubtitle.Font = new Font("Segoe UI", 9.5F);
-        heroSubtitle.TextAlign = ContentAlignment.MiddleCenter;
-        heroSubtitle.Bounds = new Rectangle(30, 72, 660, 24);
-        heroSubtitle.Text = "Песочница клеточных автоматов и логических схем";
-
-        badgesRow.Bounds = new Rectangle(120, 104, 480, 28);
-        badgesRow.BackColor = Color.Transparent;
-        var tag1 = CreateTag("60+ FPS ENGINE", Color.FromArgb(56, 189, 248), 0);
-        var tag2 = CreateTag("ОФЛАЙН SNAPSHOT", Color.FromArgb(16, 185, 129), 160);
-        var tag3 = CreateTag("КАРТЫ & BASE64", Color.FromArgb(245, 158, 11), 320);
-        badgesRow.Controls.Add(tag1);
-        badgesRow.Controls.Add(tag2);
-        badgesRow.Controls.Add(tag3);
-
+        // Progress Section
         loadingStatus.AutoSize = false;
-        loadingStatus.ForeColor = Color.FromArgb(125, 211, 252);
-        loadingStatus.Font = new Font("Segoe UI", 11.5F, FontStyle.Bold);
+        loadingStatus.ForeColor = Color.FromArgb(88, 166, 255);
+        loadingStatus.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
         loadingStatus.TextAlign = ContentAlignment.MiddleCenter;
-        loadingStatus.Bounds = new Rectangle(30, 160, 660, 28);
-        loadingStatus.Text = "Проверка игровых ресурсов...";
+        loadingStatus.Bounds = new Rectangle(20, 140, 520, 24);
+        loadingStatus.Text = "Проверка ресурсов...";
 
         loadingFile.AutoSize = false;
-        loadingFile.ForeColor = Color.FromArgb(174, 187, 211);
-        loadingFile.Font = new Font("Segoe UI", 9F);
+        loadingFile.ForeColor = Color.FromArgb(139, 148, 158);
+        loadingFile.Font = new Font("Segoe UI", 8.5F);
         loadingFile.TextAlign = ContentAlignment.MiddleCenter;
         loadingFile.AutoEllipsis = true;
-        loadingFile.Bounds = new Rectangle(30, 190, 660, 24);
+        loadingFile.Bounds = new Rectangle(40, 166, 480, 20);
         loadingFile.Text = "Синхронизация с logic-arrows.io";
 
         loadingProgress.Progress = 0;
-        loadingProgress.TrackColor = Color.FromArgb(30, 38, 56);
-        loadingProgress.ProgressColor = Color.FromArgb(56, 189, 248);
-        loadingProgress.GradientEndColor = Color.FromArgb(16, 185, 129);
-        loadingProgress.Bounds = new Rectangle(50, 224, 620, 12);
+        loadingProgress.TrackColor = Color.FromArgb(33, 38, 45);
+        loadingProgress.ProgressColor = Color.FromArgb(35, 134, 54);
+        loadingProgress.Bounds = new Rectangle(50, 196, 460, 6);
 
         loadingCount.AutoSize = false;
-        loadingCount.ForeColor = Color.FromArgb(148, 163, 184);
-        loadingCount.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+        loadingCount.ForeColor = Color.FromArgb(139, 148, 158);
+        loadingCount.Font = new Font("Segoe UI", 8.5F);
         loadingCount.TextAlign = ContentAlignment.MiddleCenter;
-        loadingCount.Bounds = new Rectangle(30, 242, 660, 22);
-        loadingCount.Text = "0%  •  0 / 141 проверено";
+        loadingCount.Bounds = new Rectangle(20, 208, 520, 20);
+        loadingCount.Text = "0%";
 
-        playButton.Text = "▶   ИГРАТЬ";
-        playButton.Bounds = new Rectangle(70, 286, 580, 56);
+        // Play Button
+        playButton.Text = "ИГРАТЬ";
+        playButton.Bounds = new Rectangle(50, 246, 460, 48);
         playButton.FlatStyle = FlatStyle.Flat;
         playButton.FlatAppearance.BorderSize = 0;
-        playButton.BackColor = Color.FromArgb(16, 185, 129);
-        playButton.GradientEndColor = Color.FromArgb(5, 150, 105);
+        playButton.BackColor = Color.FromArgb(35, 134, 54);
+        playButton.HoverBackColor = Color.FromArgb(46, 160, 67);
+        playButton.PressedBackColor = Color.FromArgb(29, 110, 44);
         playButton.ForeColor = Color.White;
-        playButton.Font = new Font("Segoe UI", 13F, FontStyle.Bold);
-        playButton.CornerRadius = 14;
-        playButton.BorderColor = Color.FromArgb(52, 211, 153);
-        playButton.BorderThickness = 1;
+        playButton.Font = new Font("Segoe UI", 11.5F, FontStyle.Bold);
+        playButton.CornerRadius = 8;
+        playButton.BorderThickness = 0;
         playButton.Cursor = Cursors.Hand;
         playButton.Visible = false;
         playButton.Enabled = false;
         playButton.Click += PlayButton_Click;
 
-        BuildUpdateBanner();
+        // Update notice banner
+        updateNoticePanel.Bounds = new Rectangle(50, 304, 460, 48);
+        updateNoticePanel.BackColor = Color.FromArgb(13, 27, 44);
+        updateNoticePanel.BorderColor = Color.FromArgb(31, 111, 235);
+        updateNoticePanel.BorderThickness = 1;
+        updateNoticePanel.CornerRadius = 8;
+        updateNoticePanel.Visible = false;
 
-        loadingError.AutoSize = false;
-        loadingError.ForeColor = Color.FromArgb(252, 165, 165);
-        loadingError.BackColor = Color.FromArgb(40, 20, 24);
-        loadingError.Font = new Font("Segoe UI", 9F);
-        loadingError.TextAlign = ContentAlignment.MiddleCenter;
-        loadingError.AutoEllipsis = true;
-        loadingError.Bounds = new Rectangle(70, 286, 580, 80);
-        loadingError.Text = "";
-        loadingError.Visible = false;
+        updateNoticeLabel.AutoSize = false;
+        updateNoticeLabel.ForeColor = Color.FromArgb(88, 166, 255);
+        updateNoticeLabel.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+        updateNoticeLabel.TextAlign = ContentAlignment.MiddleLeft;
+        updateNoticeLabel.Location = new Point(12, 0);
+        updateNoticeLabel.Size = new Size(310, 48);
+        updateNoticeLabel.Text = "Доступно обновление лаунчера";
 
-        loadingVersion.AutoSize = false;
-        loadingVersion.ForeColor = Color.FromArgb(100, 116, 145);
-        loadingVersion.Font = new Font("Segoe UI", 8.5F);
-        loadingVersion.TextAlign = ContentAlignment.MiddleCenter;
-        loadingVersion.Bounds = new Rectangle(30, 484, 660, 22);
-        loadingVersion.Text = "v1.1.5  •  Windows x64  •  Self-contained  •  ";
+        updateNoticeBtn.Text = "Обновить";
+        updateNoticeBtn.Bounds = new Rectangle(330, 8, 118, 32);
+        updateNoticeBtn.FlatStyle = FlatStyle.Flat;
+        updateNoticeBtn.FlatAppearance.BorderSize = 0;
+        updateNoticeBtn.BackColor = Color.FromArgb(31, 111, 235);
+        updateNoticeBtn.HoverBackColor = Color.FromArgb(56, 139, 253);
+        updateNoticeBtn.ForeColor = Color.White;
+        updateNoticeBtn.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+        updateNoticeBtn.CornerRadius = 6;
+        updateNoticeBtn.Cursor = Cursors.Hand;
+        updateNoticeBtn.Click += (_, _) => TriggerAutoUpdate();
+
+        updateNoticePanel.Controls.Add(updateNoticeLabel);
+        updateNoticePanel.Controls.Add(updateNoticeBtn);
+
+        // Error message
+        errorLabel.AutoSize = false;
+        errorLabel.ForeColor = Color.FromArgb(248, 81, 73);
+        errorLabel.BackColor = Color.FromArgb(33, 16, 20);
+        errorLabel.Font = new Font("Segoe UI", 8.5F);
+        errorLabel.TextAlign = ContentAlignment.MiddleCenter;
+        errorLabel.AutoEllipsis = true;
+        errorLabel.Bounds = new Rectangle(50, 246, 460, 60);
+        errorLabel.Text = "";
+        errorLabel.Visible = false;
+
+        // Footer version & check updates
+        var footerPanel = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            BackColor = Color.Transparent,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty,
+        };
+
+        versionLabel.AutoSize = true;
+        versionLabel.ForeColor = Color.FromArgb(139, 148, 158);
+        versionLabel.Font = new Font("Segoe UI", 8.5F);
+        versionLabel.Text = "v1.1.5  •  Windows x64  •  ";
 
         checkUpdatesLink.AutoSize = true;
-        checkUpdatesLink.LinkColor = Color.FromArgb(56, 189, 248);
-        checkUpdatesLink.ActiveLinkColor = Color.FromArgb(125, 211, 252);
-        checkUpdatesLink.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+        checkUpdatesLink.LinkColor = Color.FromArgb(88, 166, 255);
+        checkUpdatesLink.ActiveLinkColor = Color.FromArgb(121, 192, 255);
+        checkUpdatesLink.VisitedLinkColor = Color.FromArgb(88, 166, 255);
+        checkUpdatesLink.Font = new Font("Segoe UI", 8.5F);
         checkUpdatesLink.Text = "Проверить обновления";
-        checkUpdatesLink.Location = new Point(475, 484);
         checkUpdatesLink.LinkClicked += async (_, _) => await ManualCheckUpdatesAsync();
 
-        loadingCard.Controls.Add(heroTitle);
-        loadingCard.Controls.Add(heroSubtitle);
-        loadingCard.Controls.Add(badgesRow);
-        loadingCard.Controls.Add(loadingStatus);
-        loadingCard.Controls.Add(loadingFile);
-        loadingCard.Controls.Add(loadingProgress);
-        loadingCard.Controls.Add(loadingCount);
-        loadingCard.Controls.Add(playButton);
-        loadingCard.Controls.Add(updateBanner);
-        loadingCard.Controls.Add(loadingError);
-        loadingCard.Controls.Add(checkUpdatesLink);
-        loadingCard.Controls.Add(loadingVersion);
+        footerPanel.Controls.Add(versionLabel);
+        footerPanel.Controls.Add(checkUpdatesLink);
 
+        // Center footer at the bottom of the card
+        centerCard.Controls.Add(cardTitle);
+        centerCard.Controls.Add(cardSubtitle);
+        centerCard.Controls.Add(loadingStatus);
+        centerCard.Controls.Add(loadingFile);
+        centerCard.Controls.Add(loadingProgress);
+        centerCard.Controls.Add(loadingCount);
+        centerCard.Controls.Add(playButton);
+        centerCard.Controls.Add(updateNoticePanel);
+        centerCard.Controls.Add(errorLabel);
+
+        footerPanel.Location = new Point(135, 375);
+        centerCard.Controls.Add(footerPanel);
+    }
+
+    private void BuildLoadingOverlay()
+    {
+        loadingOverlay.Dock = DockStyle.Fill;
+        loadingOverlay.BackColor = Color.FromArgb(13, 17, 23);
+        loadingOverlay.Visible = true;
+        loadingOverlay.Controls.Add(centerCard);
         CenterLoadingCard();
     }
 
-    private void BuildUpdateBanner()
+    private void CenterLoadingCard()
     {
-        updateBanner.Bounds = new Rectangle(70, 360, 580, 94);
-        updateBanner.BackColor = Color.FromArgb(14, 32, 54);
-        updateBanner.BorderColor = Color.FromArgb(2, 132, 199);
-        updateBanner.BorderThickness = 1;
-        updateBanner.CornerRadius = 14;
-        updateBanner.Visible = false;
-
-        updateBannerTitle.AutoSize = false;
-        updateBannerTitle.ForeColor = Color.FromArgb(56, 189, 248);
-        updateBannerTitle.Font = new Font("Segoe UI", 10.5F, FontStyle.Bold);
-        updateBannerTitle.Location = new Point(16, 14);
-        updateBannerTitle.Size = new Size(370, 26);
-        updateBannerTitle.Text = "🚀 Доступно обновление!";
-
-        updateBannerNotes.AutoSize = false;
-        updateBannerNotes.ForeColor = Color.FromArgb(186, 230, 253);
-        updateBannerNotes.Font = new Font("Segoe UI", 8.5F);
-        updateBannerNotes.Location = new Point(16, 42);
-        updateBannerNotes.Size = new Size(370, 40);
-        updateBannerNotes.AutoEllipsis = true;
-        updateBannerNotes.Text = "Нажмите кнопку справа для автоматического обновления.";
-
-        updateBannerBtn.Text = "Обновить";
-        updateBannerBtn.Bounds = new Rectangle(400, 22, 160, 48);
-        updateBannerBtn.FlatStyle = FlatStyle.Flat;
-        updateBannerBtn.FlatAppearance.BorderSize = 0;
-        updateBannerBtn.BackColor = Color.FromArgb(2, 132, 199);
-        updateBannerBtn.GradientEndColor = Color.FromArgb(37, 99, 235);
-        updateBannerBtn.ForeColor = Color.White;
-        updateBannerBtn.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-        updateBannerBtn.CornerRadius = 10;
-        updateBannerBtn.Cursor = Cursors.Hand;
-        updateBannerBtn.Click += (_, _) => TriggerAutoUpdate();
-
-        updateBanner.Controls.Add(updateBannerTitle);
-        updateBanner.Controls.Add(updateBannerNotes);
-        updateBanner.Controls.Add(updateBannerBtn);
-    }
-
-    private static Label CreateTag(string text, Color color, int x)
-    {
-        return new Label
-        {
-            Text = text,
-            ForeColor = color,
-            BackColor = Color.FromArgb(25, color.R, color.G, color.B),
-            Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
-            TextAlign = ContentAlignment.MiddleCenter,
-            Bounds = new Rectangle(x, 0, 150, 24),
-        };
+        if (loadingOverlay.ClientSize.Width <= 0 || loadingOverlay.ClientSize.Height <= 0) return;
+        var x = Math.Max(12, (loadingOverlay.ClientSize.Width - centerCard.Width) / 2);
+        var y = Math.Max(12, (loadingOverlay.ClientSize.Height - centerCard.Height) / 2);
+        centerCard.Location = new Point(x, y);
     }
 
     private async void LauncherForm_Shown(object? sender, EventArgs e)
     {
         if (initialized) return;
         initialized = true;
+        CenterLoadingCard();
         _ = CheckUpdatesInBackgroundAsync();
         await InitializeLauncherAsync();
     }
@@ -422,12 +411,8 @@ public sealed class LauncherForm : Form
             }
             else
             {
-                statusBadge.Text = "Актуальная версия";
-                statusBadge.BadgeColor = Color.FromArgb(16, 185, 129);
-                statusBadge.BackgroundColor = Color.FromArgb(12, 38, 28);
-                statusBadge.BorderColor = Color.FromArgb(22, 101, 52);
                 MessageBox.Show(
-                    "У вас установлена самая последняя версия лаунчера (v1.1.5).",
+                    "У вас установлена последняя версия лаунчера (v1.1.5).",
                     "Обновлений нет",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -450,18 +435,11 @@ public sealed class LauncherForm : Form
 
     private void ShowAvailableUpdate(UpdateInfo update)
     {
-        statusBadge.Text = $"Доступно {update.TagName}";
-        statusBadge.BadgeColor = Color.FromArgb(56, 189, 248);
-        statusBadge.BackgroundColor = Color.FromArgb(14, 38, 58);
-        statusBadge.BorderColor = Color.FromArgb(2, 132, 199);
-        statusBadge.Width = 160;
-
         updateButton.Text = $"⚡ {update.TagName}";
         updateButton.Visible = true;
 
-        updateBannerTitle.Text = $"🚀 Доступна версия {update.TagName}!";
-        updateBannerNotes.Text = !string.IsNullOrWhiteSpace(update.ReleaseName) ? update.ReleaseName : "Нажмите для автоматического скачивания.";
-        updateBanner.Visible = true;
+        updateNoticeLabel.Text = $"Доступна версия {update.TagName}";
+        updateNoticePanel.Visible = true;
     }
 
     private async void TriggerAutoUpdate()
@@ -469,36 +447,36 @@ public sealed class LauncherForm : Form
         if (isUpdating || availableUpdate is null) return;
         isUpdating = true;
         updateButton.Enabled = false;
-        updateBannerBtn.Enabled = false;
+        updateNoticeBtn.Enabled = false;
         playButton.Enabled = false;
 
-        loadingStatus.Text = $"Скачивание {availableUpdate.TagName} с GitHub...";
-        loadingFile.Text = "Пожалуйста, подождите. Лаунчер обновится автоматически.";
+        loadingStatus.Text = $"Скачивание {availableUpdate.TagName}...";
+        loadingFile.Text = "Обновление лаунчера с GitHub";
         loadingProgress.Progress = 0;
 
         var progress = new Progress<int>(percent =>
         {
             loadingProgress.Progress = percent;
-            loadingCount.Text = $"{percent}% скачано";
+            loadingCount.Text = $"{percent}%";
         });
 
         try
         {
             var tempExe = await LauncherUpdater.DownloadUpdateAsync(availableUpdate, progress);
-            loadingStatus.Text = "Обновление готово. Перезапуск...";
-            await Task.Delay(400);
+            loadingStatus.Text = "Перезапуск...";
+            await Task.Delay(300);
             LauncherUpdater.ApplyUpdateAndRestart(tempExe);
         }
         catch (Exception ex)
         {
             isUpdating = false;
             updateButton.Enabled = true;
-            updateBannerBtn.Enabled = true;
+            updateNoticeBtn.Enabled = true;
             playButton.Enabled = true;
-            loadingStatus.Text = "Ошибка загрузки обновления";
+            loadingStatus.Text = "Ошибка загрузки";
             loadingFile.Text = ex.Message;
             MessageBox.Show(
-                $"Не удалось загрузить обновление: {ex.Message}\r\n\r\nВы можете скачать его вручную со страницы релизов.",
+                $"Не удалось загрузить обновление: {ex.Message}",
                 "Ошибка обновления",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
@@ -520,23 +498,22 @@ public sealed class LauncherForm : Form
 
             if (!synchronizer.HasRequiredCache())
             {
-                ShowLaunchError(
-                    "Не удалось подготовить локальный кэш игры.\r\nПроверьте интернет-соединение и запустите лаунчер снова.",
-                    false);
+                ShowLaunchError("Не удалось подготовить локальный кэш игры.\r\nПроверьте соединение с сетью.", false);
                 return;
             }
 
-            loadingStatus.Text = "Инициализация движка...";
-            loadingFile.Text = "Подготовка WebView2";
+            loadingStatus.Text = "Подготовка движка...";
+            loadingFile.Text = "Загрузка компонентов WebView2";
             loadingProgress.Progress = 100;
-            loadingCount.Text = "100%  •  141 из 141 готово";
+            loadingCount.Text = "100%";
 
             await InitializeWebViewAsync();
 
-            loadingStatus.Text = "Logic Arrows готова!";
+            loadingStatus.Text = "Игра готова к запуску";
+            loadingStatus.ForeColor = Color.FromArgb(63, 185, 80);
             loadingFile.Text = summary.Downloaded > 0
-                ? $"Загружено {summary.Downloaded} новых ресурсов"
-                : "Все ресурсы проверены и загружены из локального кэша";
+                ? $"Загружено {summary.Downloaded} новых файлов"
+                : "Все 141 файл проверены локально";
 
             playButton.Visible = true;
             playButton.Enabled = true;
@@ -556,7 +533,7 @@ public sealed class LauncherForm : Form
     {
         var percent = p.Total > 0 ? (int)((p.Completed * 100) / p.Total) : 0;
         loadingProgress.Progress = percent;
-        loadingCount.Text = $"{percent}%  •  {p.Completed} из {p.Total} файлов";
+        loadingCount.Text = $"{p.Completed} из {p.Total} ({percent}%)";
         loadingFile.Text = p.AssetPath;
         loadingStatus.Text = p.Status;
     }
@@ -869,12 +846,10 @@ public sealed class LauncherForm : Form
     {
         if (!e.IsSuccess)
         {
-            gamePageReady = false;
             gamePageReadySignal?.TrySetException(new InvalidOperationException($"Ошибка WebView2: {e.WebErrorStatus}"));
             loadingStatus.Text = $"Ошибка WebView2: {e.WebErrorStatus}";
             return;
         }
-        gamePageReady = true;
         gamePageReadySignal?.TrySetResult(true);
         if (isGameFullscreen) QueueGameViewFocus();
     }
@@ -883,14 +858,12 @@ public sealed class LauncherForm : Form
     {
         webView.Visible = false;
         loadingOverlay.Visible = true;
-        heroTitle.Text = "ОШИБКА ЗАПУСКА";
-        heroSubtitle.Text = runtimeError ? "Требуется WebView2 Runtime" : "Не удалось загрузить игру";
         loadingStatus.Text = runtimeError ? "Нужен Microsoft WebView2" : "Ошибка сетевой синхронизации";
-        loadingStatus.ForeColor = Color.FromArgb(248, 113, 113);
+        loadingStatus.ForeColor = Color.FromArgb(248, 81, 73);
         loadingFile.Text = "Проверьте подключение к сети и перезапустите лаунчер.";
         loadingProgress.Progress = 0;
-        loadingError.Text = message;
-        loadingError.Visible = true;
+        errorLabel.Text = message;
+        errorLabel.Visible = true;
         playButton.Visible = false;
         CenterLoadingCard();
     }
@@ -915,13 +888,6 @@ public sealed class LauncherForm : Form
             "LogicArrowsLauncher",
             "updates",
             ResourceCatalog.CurrentVersion);
-    }
-
-    private void CenterLoadingCard()
-    {
-        if (loadingOverlay.ClientSize.Width <= 0 || loadingOverlay.ClientSize.Height <= 0) return;
-        loadingCard.Left = Math.Max(12, (loadingOverlay.ClientSize.Width - loadingCard.Width) / 2);
-        loadingCard.Top = Math.Max(12, (loadingOverlay.ClientSize.Height - loadingCard.Height) / 2);
     }
 
     protected override void Dispose(bool disposing)

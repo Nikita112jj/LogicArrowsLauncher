@@ -1,10 +1,10 @@
-﻿using System.Drawing.Drawing2D;
+using System.Drawing.Drawing2D;
 
 namespace LogicArrowsLauncher;
 
 public sealed class RoundedPanel : Panel
 {
-    private int cornerRadius = 18;
+    private int cornerRadius = 14;
 
     public int CornerRadius
     {
@@ -21,7 +21,10 @@ public sealed class RoundedPanel : Panel
 
     public int BorderThickness { get; set; } = 1;
 
-    public Color? GradientEndColor { get; set; }
+    public RoundedPanel()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+    }
 
     protected override void OnSizeChanged(EventArgs e)
     {
@@ -33,16 +36,8 @@ public sealed class RoundedPanel : Panel
     {
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
         using var path = CreatePath(ClientRectangle, CornerRadius);
-        if (GradientEndColor.HasValue && GradientEndColor.Value != Color.Transparent && ClientRectangle.Width > 0 && ClientRectangle.Height > 0)
-        {
-            using var brush = new LinearGradientBrush(ClientRectangle, BackColor, GradientEndColor.Value, LinearGradientMode.Vertical);
-            e.Graphics.FillPath(brush, path);
-        }
-        else
-        {
-            using var brush = new SolidBrush(BackColor);
-            e.Graphics.FillPath(brush, path);
-        }
+        using var brush = new SolidBrush(BackColor);
+        e.Graphics.FillPath(brush, path);
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -92,7 +87,7 @@ public sealed class RoundedPanel : Panel
 
 public sealed class RoundedButton : Button
 {
-    private int cornerRadius = 12;
+    private int cornerRadius = 8;
     private bool hovered;
     private bool pressed;
 
@@ -109,11 +104,17 @@ public sealed class RoundedButton : Button
 
     public Color BorderColor { get; set; } = Color.Transparent;
 
-    public int BorderThickness { get; set; } = 0;
-
-    public Color? GradientEndColor { get; set; }
+    public int BorderThickness { get; set; } = 1;
 
     public Color? HoverBackColor { get; set; }
+
+    public Color? PressedBackColor { get; set; }
+
+    public RoundedButton()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+        Cursor = Cursors.Hand;
+    }
 
     protected override void OnSizeChanged(EventArgs e)
     {
@@ -156,36 +157,29 @@ public sealed class RoundedButton : Button
         var bounds = ClientRectangle;
         using var path = RoundedPanel.CreatePath(bounds, CornerRadius);
 
+        Color fillColor;
         if (!Enabled)
         {
-            using var fill = new SolidBrush(Color.FromArgb(40, 48, 64));
-            e.Graphics.FillPath(fill, path);
+            fillColor = Color.FromArgb(33, 38, 45);
         }
-        else if (GradientEndColor.HasValue && GradientEndColor.Value != Color.Transparent && bounds.Width > 0 && bounds.Height > 0)
+        else if (pressed)
         {
-            var start = BackColor;
-            var end = GradientEndColor.Value;
-            if (pressed)
-            {
-                start = Color.FromArgb(Math.Max(0, start.R - 25), Math.Max(0, start.G - 25), Math.Max(0, start.B - 25));
-                end = Color.FromArgb(Math.Max(0, end.R - 25), Math.Max(0, end.G - 25), Math.Max(0, end.B - 25));
-            }
-            else if (hovered)
-            {
-                start = ControlPaint.Light(start, 0.15f);
-                end = ControlPaint.Light(end, 0.15f);
-            }
-            using var grad = new LinearGradientBrush(bounds, start, end, LinearGradientMode.Horizontal);
-            e.Graphics.FillPath(grad, path);
+            fillColor = PressedBackColor ?? Color.FromArgb(
+                Math.Max(0, BackColor.R - 20),
+                Math.Max(0, BackColor.G - 20),
+                Math.Max(0, BackColor.B - 20));
+        }
+        else if (hovered)
+        {
+            fillColor = HoverBackColor ?? ControlPaint.Light(BackColor, 0.12f);
         }
         else
         {
-            var fillColor = pressed
-                ? Color.FromArgb(Math.Max(0, BackColor.R - 20), Math.Max(0, BackColor.G - 20), Math.Max(0, BackColor.B - 20))
-                : hovered
-                    ? (HoverBackColor ?? ControlPaint.Light(BackColor, 0.15f))
-                    : BackColor;
-            using var fill = new SolidBrush(fillColor);
+            fillColor = BackColor;
+        }
+
+        using (var fill = new SolidBrush(fillColor))
+        {
             e.Graphics.FillPath(fill, path);
         }
 
@@ -194,26 +188,27 @@ public sealed class RoundedButton : Button
             var borderBounds = bounds;
             borderBounds.Inflate(-BorderThickness / 2, -BorderThickness / 2);
             using var borderPath = RoundedPanel.CreatePath(borderBounds, CornerRadius);
-            using var pen = new Pen(BorderColor, BorderThickness);
+            using var pen = new Pen(Enabled ? BorderColor : Color.FromArgb(48, 54, 61), BorderThickness);
             e.Graphics.DrawPath(pen, borderPath);
         }
 
         var content = ClientRectangle;
-        var hasImage = Image is not null;
-        if (hasImage)
+        if (Image is not null)
         {
-            var iconBounds = new Rectangle(14, (Height - 18) / 2, 18, 18);
-            e.Graphics.DrawImage(Image!, iconBounds);
-            content.X += 36;
-            content.Width -= 42;
+            var iconSize = 16;
+            var iconBounds = new Rectangle(12, (Height - iconSize) / 2, iconSize, iconSize);
+            e.Graphics.DrawImage(Image, iconBounds);
+            content.X += 28;
+            content.Width -= 34;
         }
 
+        var textColor = !Enabled ? Color.FromArgb(139, 148, 158) : ForeColor;
         TextRenderer.DrawText(
             e.Graphics,
             Text,
             Font,
             content,
-            Enabled ? ForeColor : Color.FromArgb(115, 128, 153),
+            textColor,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
     }
 
@@ -246,16 +241,14 @@ public sealed class RoundedProgressBar : Control
         }
     }
 
-    public Color TrackColor { get; set; } = Color.FromArgb(32, 40, 56);
+    public Color TrackColor { get; set; } = Color.FromArgb(33, 38, 45);
 
-    public Color ProgressColor { get; set; } = Color.FromArgb(56, 189, 248);
-
-    public Color? GradientEndColor { get; set; } = Color.FromArgb(16, 185, 129);
+    public Color ProgressColor { get; set; } = Color.FromArgb(35, 134, 54);
 
     public RoundedProgressBar()
     {
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
-        Height = 10;
+        Height = 6;
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -263,75 +256,15 @@ public sealed class RoundedProgressBar : Control
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
         var track = ClientRectangle;
-        track.Inflate(0, -1);
         using var trackPath = RoundedPanel.CreatePath(track, Math.Max(1, track.Height / 2));
         using var trackBrush = new SolidBrush(TrackColor);
         e.Graphics.FillPath(trackBrush, trackPath);
 
         if (Progress <= 0) return;
-        var fill = new Rectangle(track.X, track.Y, Math.Max(track.Height, track.Width * Progress / 100), track.Height);
-        fill.Width = Math.Min(fill.Width, track.Width);
+        var fillWidth = Math.Max(track.Height, track.Width * Progress / 100);
+        var fill = new Rectangle(track.X, track.Y, Math.Min(fillWidth, track.Width), track.Height);
         using var fillPath = RoundedPanel.CreatePath(fill, Math.Max(1, fill.Height / 2));
-
-        if (GradientEndColor.HasValue && GradientEndColor.Value != Color.Transparent && fill.Width > 1)
-        {
-            using var grad = new LinearGradientBrush(fill, ProgressColor, GradientEndColor.Value, LinearGradientMode.Horizontal);
-            e.Graphics.FillPath(grad, fillPath);
-        }
-        else
-        {
-            using var fillBrush = new SolidBrush(ProgressColor);
-            e.Graphics.FillPath(fillBrush, fillPath);
-        }
-    }
-}
-
-public sealed class PillBadge : Control
-{
-    public Color BadgeColor { get; set; } = Color.FromArgb(16, 185, 129);
-    public Color BackgroundColor { get; set; } = Color.FromArgb(10, 36, 28);
-    public Color BorderColor { get; set; } = Color.FromArgb(20, 83, 45);
-
-    public PillBadge()
-    {
-        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
-        ForeColor = Color.FromArgb(167, 243, 208);
-        Font = new Font("Segoe UI", 8F, FontStyle.Bold);
-        Height = 26;
-        Width = 140;
-    }
-
-    protected override void OnPaint(PaintEventArgs e)
-    {
-        base.OnPaint(e);
-        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        var bounds = ClientRectangle;
-        bounds.Inflate(-1, -1);
-        var radius = bounds.Height / 2;
-
-        using var path = RoundedPanel.CreatePath(bounds, radius);
-        using var bg = new SolidBrush(BackgroundColor);
-        e.Graphics.FillPath(bg, path);
-
-        if (BorderColor != Color.Transparent)
-        {
-            using var pen = new Pen(BorderColor, 1);
-            e.Graphics.DrawPath(pen, path);
-        }
-
-        // Draw dot
-        var dotSize = 7;
-        var dotRect = new Rectangle(bounds.X + 10, bounds.Y + (bounds.Height - dotSize) / 2, dotSize, dotSize);
-        using var dotBrush = new SolidBrush(BadgeColor);
-        e.Graphics.FillEllipse(dotBrush, dotRect);
-
-        var textRect = new Rectangle(bounds.X + 22, bounds.Y, bounds.Width - 26, bounds.Height);
-        TextRenderer.DrawText(
-            e.Graphics,
-            Text,
-            Font,
-            textRect,
-            ForeColor,
-            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+        using var fillBrush = new SolidBrush(ProgressColor);
+        e.Graphics.FillPath(fillBrush, fillPath);
     }
 }
