@@ -1006,22 +1006,45 @@ public static class MapBridgeScript
       linkBox.style.userSelect = 'none';
       linkBox.title = 'Нажмите, чтобы скопировать ссылку на карту';
 
+      const urlSpan = document.createElement('span');
+      urlSpan.className = 'logic-public-url-text';
+      urlSpan.style.overflow = 'hidden';
+      urlSpan.style.textOverflow = 'ellipsis';
+      urlSpan.style.whiteSpace = 'nowrap';
+      urlSpan.style.maxWidth = '75%';
+      urlSpan.style.fontFamily = 'var(--font)';
+
+      const copyBtn = document.createElement('span');
+      copyBtn.className = 'logic-public-copy-btn';
+      copyBtn.style.fontSize = '1.8vmin';
+      copyBtn.style.fontFamily = 'var(--font)';
+      copyBtn.style.background = 'rgba(56, 139, 253, 0.3)';
+      copyBtn.style.padding = '0.3vmin 0.8vmin';
+      copyBtn.style.borderRadius = '0.5vmin';
+      copyBtn.style.color = '#ffffff';
+      copyBtn.textContent = 'Копировать 📋';
+
+      linkBox.append(urlSpan, copyBtn);
       nameInput.parentElement?.insertBefore(linkBox, nameInput.nextSibling);
     }
 
     const updatePublicLink = () => {
       if (!mapInfo || !linkBox) return;
       const isPublic = Boolean(mapInfo.isPublic);
+      const targetDisplay = isPublic ? 'flex' : 'none';
+      if (linkBox.style.display !== targetDisplay) {
+        linkBox.style.display = targetDisplay;
+      }
       if (isPublic) {
-        linkBox.style.display = 'flex';
         const cleanId = mapInfo.id?.replace(/^map-/, '') || mapInfo.id;
         const url = `https://logic-arrows.io/map-${cleanId}`;
-        linkBox.innerHTML = `
-          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 78%; font-family: var(--font);">
-            🌐 <span style="text-decoration: underline;">${url}</span>
-          </span>
-          <span style="font-size: 1.8vmin; font-family: var(--font); background: rgba(56, 139, 253, 0.3); padding: 0.3vmin 0.8vmin; border-radius: 0.5vmin; color: #ffffff;">Копировать 📋</span>
-        `;
+        if (linkBox.dataset.renderedUrl !== url) {
+          linkBox.dataset.renderedUrl = url;
+          const urlSpan = linkBox.querySelector('.logic-public-url-text');
+          if (urlSpan) {
+            urlSpan.textContent = `🌐 ${url}`;
+          }
+        }
         linkBox.onclick = (e) => {
           e.stopPropagation();
           try {
@@ -1035,12 +1058,17 @@ public static class MapBridgeScript
               document.execCommand('copy');
               tempInput.remove();
             }
-            linkBox.innerHTML = `<span style="color: #3fb950; font-weight: bold; font-family: var(--font);">Ссылка скопирована в буфер! ✅</span>`;
-            setTimeout(updatePublicLink, 1800);
+            const copyBtn = linkBox.querySelector('.logic-public-copy-btn');
+            if (copyBtn) {
+              copyBtn.textContent = 'Скопировано! ✅';
+              copyBtn.style.background = 'rgba(63, 185, 80, 0.4)';
+              setTimeout(() => {
+                copyBtn.textContent = 'Копировать 📋';
+                copyBtn.style.background = 'rgba(56, 139, 253, 0.3)';
+              }, 1800);
+            }
           } catch { }
         };
-      } else {
-        linkBox.style.display = 'none';
       }
     };
 
@@ -1872,15 +1900,33 @@ public static class MapBridgeScript
     tryPendingLobbyImport();
   }
 
+  let isSyncing = false;
+  let syncScheduled = false;
+
+  function scheduleSyncUi() {
+    if (syncScheduled || isSyncing) return;
+    syncScheduled = true;
+    globalThis.requestAnimationFrame(() => {
+      syncScheduled = false;
+      if (isSyncing) return;
+      isSyncing = true;
+      try {
+        syncUi();
+      } finally {
+        isSyncing = false;
+      }
+    });
+  }
+
   function startObserver() {
     if (!document.documentElement) {
       globalThis.setTimeout(startObserver, 25);
       return;
     }
-    const observer = new MutationObserver(syncUi);
+    const observer = new MutationObserver(scheduleSyncUi);
     observer.observe(document.documentElement, { childList: true, subtree: true });
-    globalThis.setInterval(syncUi, 500);
-    syncUi();
+    globalThis.setInterval(scheduleSyncUi, 500);
+    scheduleSyncUi();
   }
 
   installDarkArrowCellShaderHook();
