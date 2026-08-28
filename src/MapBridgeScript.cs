@@ -2586,10 +2586,24 @@ public static class MapBridgeScript
       const activatePreview = () => {
         sideBar.querySelectorAll('.side-menu-element').forEach(el => el.classList.remove('side-menu-element-selected'));
         previewBtn.classList.add('side-menu-element-selected');
+        
         const content = document.getElementById('menu-page-content');
         if (content) {
-          content.innerHTML = '';
-          renderInGamePreviewStudio(content);
+          Array.from(content.children).forEach(child => {
+            if (child.id !== 'logic-preview-page-container') {
+              child.style.display = 'none';
+            }
+          });
+          let previewWrap = document.getElementById('logic-preview-page-container');
+          if (!previewWrap) {
+            previewWrap = document.createElement('div');
+            previewWrap.id = 'logic-preview-page-container';
+            previewWrap.style.cssText = 'display:flex;width:100%;height:100%;';
+            content.appendChild(previewWrap);
+            renderInGamePreviewStudio(previewWrap);
+          } else {
+            previewWrap.style.display = 'flex';
+          }
         }
       };
 
@@ -2603,7 +2617,33 @@ public static class MapBridgeScript
       if (el.id !== PREVIEW_SIDEBAR_ID && !el.dataset.previewHooked) {
         el.dataset.previewHooked = '1';
         el.addEventListener('click', () => {
-          document.getElementById(PREVIEW_SIDEBAR_ID)?.classList.remove('side-menu-element-selected');
+          const previewBtn = document.getElementById(PREVIEW_SIDEBAR_ID);
+          const wasPreviewSelected = previewBtn?.classList.contains('side-menu-element-selected');
+          previewBtn?.classList.remove('side-menu-element-selected');
+
+          const previewWrap = document.getElementById('logic-preview-page-container');
+          if (previewWrap) previewWrap.style.display = 'none';
+
+          const content = document.getElementById('menu-page-content');
+          if (content) {
+            Array.from(content.children).forEach(child => {
+              if (child.id !== 'logic-preview-page-container') {
+                child.style.display = '';
+              }
+            });
+          }
+
+          if (wasPreviewSelected) {
+            const titleText = el.querySelector('.side-menu-title')?.textContent || '';
+            let route = 'maps';
+            if (titleText.includes('Уровни') || titleText.includes('Levels')) route = 'levels';
+            else if (titleText.includes('Карты') || titleText.includes('Maps')) route = 'maps';
+            else if (titleText.includes('Гайд') || titleText.includes('Guide')) route = 'guide';
+            else if (titleText.includes('Настройки') || titleText.includes('Settings')) route = 'settings';
+
+            window.history.pushState(null, '', '/' + route);
+            window.dispatchEvent(new PopStateEvent('popstate'));
+          }
         });
       }
     });
