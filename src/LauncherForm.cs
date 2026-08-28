@@ -2,6 +2,7 @@ using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -17,23 +18,35 @@ public sealed class LauncherForm : Form
     private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.1.5";
 
     private readonly RoundedPanel header = new();
-    private readonly Label headerTitle = new();
-    private readonly Label headerDetail = new();
-    private readonly RoundedButton playButton = new();
+    private readonly Label headerLogo = new();
+    private readonly Label headerSubtitle = new();
+    private readonly PillBadge statusBadge = new();
+    private readonly RoundedButton updateButton = new();
     private readonly RoundedButton githubButton = new();
     private readonly RoundedButton changelogButton = new();
+
     private readonly WebView2 webView = new();
     private readonly Panel loadingOverlay = new();
     private readonly RoundedPanel loadingCard = new();
-    private readonly Label loadingKicker = new();
-    private readonly Label loadingTitle = new();
-    private readonly Label loadingDescription = new();
+
+    private readonly Label heroTitle = new();
+    private readonly Label heroSubtitle = new();
+    private readonly Panel badgesRow = new();
+
     private readonly Label loadingStatus = new();
     private readonly Label loadingFile = new();
     private readonly RoundedProgressBar loadingProgress = new();
     private readonly Label loadingCount = new();
-    private readonly Label loadingVersion = new();
+    private readonly RoundedButton playButton = new();
+
+    private readonly RoundedPanel updateBanner = new();
+    private readonly Label updateBannerTitle = new();
+    private readonly Label updateBannerNotes = new();
+    private readonly RoundedButton updateBannerBtn = new();
+
     private readonly Label loadingError = new();
+    private readonly Label loadingVersion = new();
+    private readonly LinkLabel checkUpdatesLink = new();
 
     private AssetSynchronizer? synchronizer;
     private LocalResourceInterceptor? interceptor;
@@ -50,17 +63,18 @@ public sealed class LauncherForm : Form
     private bool exportInProgress;
     private bool lobbyImportInProgress;
     private int focusRequestId;
-    private bool nativeFocusRecoveryQueued;
     private bool appIsActive = true;
-    private long lastNativeFocusRecoveryTick = -1;
+
+    private UpdateInfo? availableUpdate;
+    private bool isUpdating;
 
     public LauncherForm()
     {
         Text = "Logic Arrows Launcher";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(900, 620);
-        ClientSize = new Size(1280, 800);
-        BackColor = Color.FromArgb(24, 24, 32);
+        MinimumSize = new Size(960, 680);
+        ClientSize = new Size(1280, 820);
+        BackColor = Color.FromArgb(11, 14, 20);
         ShowIcon = true;
         try
         {
@@ -86,6 +100,7 @@ public sealed class LauncherForm : Form
         Controls.Add(webView);
         Controls.Add(loadingOverlay);
         Controls.Add(header);
+
         loadingOverlay.Resize += (_, _) => CenterLoadingCard();
         Resize += (_, _) => CenterLoadingCard();
         Activated += LauncherForm_Activated;
@@ -96,65 +111,77 @@ public sealed class LauncherForm : Form
     private void BuildHeader()
     {
         header.Dock = DockStyle.Top;
-        header.Height = 76;
-        header.BackColor = Color.FromArgb(31, 36, 52);
-        header.BorderColor = Color.FromArgb(57, 70, 96);
+        header.Height = 72;
+        header.BackColor = Color.FromArgb(18, 24, 36);
+        header.BorderColor = Color.FromArgb(36, 48, 72);
         header.BorderThickness = 1;
-        header.CornerRadius = 18;
-        header.Padding = new Padding(20, 10, 14, 10);
+        header.CornerRadius = 0;
+        header.Padding = new Padding(24, 12, 20, 12);
 
         var headerLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 3,
+            ColumnCount = 6,
             RowCount = 1,
             BackColor = Color.Transparent,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
         };
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Logo + Title
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Pill Badge
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F)); // Spacer
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Update button
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // GitHub
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Changelog
         headerLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-        var headerText = new Panel
+        var logoBox = new Panel
         {
-            Dock = DockStyle.Fill,
+            AutoSize = true,
             BackColor = Color.Transparent,
-            Margin = Padding.Empty,
-            Padding = Padding.Empty,
+            Margin = new Padding(0, 4, 16, 0),
         };
 
-        headerTitle.AutoSize = true;
-        headerTitle.ForeColor = Color.White;
-        headerTitle.Font = new Font("Segoe UI", 11.5F, FontStyle.Bold);
-        headerTitle.Location = new Point(0, 0);
-        headerTitle.Text = "Logic Arrows Launcher";
+        headerLogo.AutoSize = true;
+        headerLogo.ForeColor = Color.FromArgb(240, 246, 255);
+        headerLogo.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+        headerLogo.Location = new Point(0, 0);
+        headerLogo.Text = "⚡ LOGIC ARROWS";
 
-        headerDetail.AutoSize = false;
-        headerDetail.ForeColor = Color.FromArgb(174, 187, 211);
-        headerDetail.Location = new Point(0, 29);
-        headerDetail.Size = new Size(700, 22);
-        headerDetail.AutoEllipsis = true;
-        headerDetail.Text = "Проверяю сохранённую версию";
+        headerSubtitle.AutoSize = true;
+        headerSubtitle.ForeColor = Color.FromArgb(100, 116, 145);
+        headerSubtitle.Font = new Font("Segoe UI", 8F, FontStyle.Bold);
+        headerSubtitle.Location = new Point(2, 22);
+        headerSubtitle.Text = "DESKTOP LAUNCHER";
 
-        headerText.Controls.Add(headerTitle);
-        headerText.Controls.Add(headerDetail);
+        logoBox.Controls.Add(headerLogo);
+        logoBox.Controls.Add(headerSubtitle);
 
-        ConfigureHeaderButton(githubButton, "GitHub", new Size(112, 38), Color.FromArgb(48, 59, 82));
+        statusBadge.Text = "Актуальная версия";
+        statusBadge.BadgeColor = Color.FromArgb(16, 185, 129);
+        statusBadge.BackgroundColor = Color.FromArgb(12, 38, 28);
+        statusBadge.BorderColor = Color.FromArgb(22, 101, 52);
+        statusBadge.Margin = new Padding(0, 10, 0, 0);
+
+        ConfigureHeaderButton(updateButton, "⚡ Обновить", new Size(130, 38), Color.FromArgb(14, 116, 144));
+        updateButton.GradientEndColor = Color.FromArgb(2, 132, 199);
+        updateButton.ForeColor = Color.White;
+        updateButton.Visible = false;
+        updateButton.Click += (_, _) => TriggerAutoUpdate();
+
+        ConfigureHeaderButton(githubButton, "GitHub", new Size(110, 38), Color.FromArgb(28, 36, 52));
         githubButton.Image = LoadEmbeddedImage("LogicArrowsLauncher.github-invertocat-white.png");
-        githubButton.ImageAlign = ContentAlignment.MiddleLeft;
-        githubButton.TextImageRelation = TextImageRelation.ImageBeforeText;
-        githubButton.Padding = new Padding(10, 0, 10, 0);
         githubButton.Click += (_, _) => OpenExternalUrl(RepositoryUrl);
 
-        ConfigureHeaderButton(changelogButton, "Changelog", new Size(132, 38), Color.FromArgb(48, 59, 82));
+        ConfigureHeaderButton(changelogButton, "Релизы", new Size(100, 38), Color.FromArgb(28, 36, 52));
         changelogButton.Click += (_, _) => OpenExternalUrl(ReleaseUrl);
-        playButton.Click += PlayButton_Click;
 
-        headerLayout.Controls.Add(headerText, 0, 0);
-        headerLayout.Controls.Add(githubButton, 1, 0);
-        headerLayout.Controls.Add(changelogButton, 2, 0);
+        headerLayout.Controls.Add(logoBox, 0, 0);
+        headerLayout.Controls.Add(statusBadge, 1, 0);
+        headerLayout.Controls.Add(new Panel { BackColor = Color.Transparent }, 2, 0);
+        headerLayout.Controls.Add(updateButton, 3, 0);
+        headerLayout.Controls.Add(githubButton, 4, 0);
+        headerLayout.Controls.Add(changelogButton, 5, 0);
         header.Controls.Add(headerLayout);
     }
 
@@ -163,222 +190,361 @@ public sealed class LauncherForm : Form
         button.Text = text;
         button.Size = size;
         button.Dock = DockStyle.Fill;
-        button.Margin = new Padding(8, 9, 0, 9);
+        button.Margin = new Padding(6, 4, 0, 4);
         button.FlatStyle = FlatStyle.Flat;
         button.FlatAppearance.BorderSize = 0;
-        button.ForeColor = Color.FromArgb(231, 237, 249);
+        button.ForeColor = Color.FromArgb(225, 235, 250);
         button.BackColor = color;
         button.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-        button.CornerRadius = 11;
+        button.CornerRadius = 10;
+        button.BorderColor = Color.FromArgb(48, 62, 90);
+        button.BorderThickness = 1;
         button.Cursor = Cursors.Hand;
     }
 
     private void BuildLoadingOverlay()
     {
         loadingOverlay.Dock = DockStyle.Fill;
-        loadingOverlay.BackColor = Color.FromArgb(14, 18, 29);
+        loadingOverlay.BackColor = Color.FromArgb(11, 14, 20);
         loadingOverlay.Visible = true;
-        loadingOverlay.Padding = new Padding(16);
+        loadingOverlay.Padding = new Padding(24);
 
-        loadingCard.Size = new Size(650, 500);
-        loadingCard.BackColor = Color.FromArgb(29, 38, 58);
-        loadingCard.BorderColor = Color.FromArgb(61, 78, 111);
+        loadingCard.Size = new Size(720, 540);
+        loadingCard.BackColor = Color.FromArgb(19, 25, 38);
+        loadingCard.GradientEndColor = Color.FromArgb(14, 18, 28);
+        loadingCard.BorderColor = Color.FromArgb(42, 56, 82);
         loadingCard.BorderThickness = 1;
-        loadingCard.CornerRadius = 24;
+        loadingCard.CornerRadius = 22;
         loadingOverlay.Controls.Add(loadingCard);
 
-        loadingKicker.AutoSize = false;
-        loadingKicker.ForeColor = Color.FromArgb(124, 169, 255);
-        loadingKicker.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
-        loadingKicker.TextAlign = ContentAlignment.MiddleCenter;
-        loadingKicker.Bounds = new Rectangle(30, 20, 590, 22);
-        loadingKicker.Text = "LOGIC ARROWS  /  LAUNCHER";
+        heroTitle.AutoSize = false;
+        heroTitle.ForeColor = Color.White;
+        heroTitle.Font = new Font("Segoe UI", 22F, FontStyle.Bold);
+        heroTitle.TextAlign = ContentAlignment.MiddleCenter;
+        heroTitle.Bounds = new Rectangle(30, 26, 660, 44);
+        heroTitle.Text = "LOGIC ARROWS";
 
-        loadingTitle.AutoSize = false;
-        loadingTitle.ForeColor = Color.White;
-        loadingTitle.Font = new Font("Segoe UI", 20F, FontStyle.Bold);
-        loadingTitle.TextAlign = ContentAlignment.MiddleCenter;
-        loadingTitle.Bounds = new Rectangle(30, 48, 590, 40);
-        loadingTitle.Text = "Подготовка Logic Arrows";
+        heroSubtitle.AutoSize = false;
+        heroSubtitle.ForeColor = Color.FromArgb(148, 163, 184);
+        heroSubtitle.Font = new Font("Segoe UI", 9.5F);
+        heroSubtitle.TextAlign = ContentAlignment.MiddleCenter;
+        heroSubtitle.Bounds = new Rectangle(30, 72, 660, 24);
+        heroSubtitle.Text = "Песочница клеточных автоматов и логических схем";
 
-        loadingDescription.AutoSize = false;
-        loadingDescription.ForeColor = Color.FromArgb(178, 191, 216);
-        loadingDescription.Font = new Font("Segoe UI", 10F);
-        loadingDescription.TextAlign = ContentAlignment.MiddleCenter;
-        loadingDescription.Bounds = new Rectangle(44, 91, 562, 40);
-        loadingDescription.Text = "Официальный runtime загружается в память лаунчера.\r\nПосле проверки появится кнопка запуска.";
+        badgesRow.Bounds = new Rectangle(120, 104, 480, 28);
+        badgesRow.BackColor = Color.Transparent;
+        var tag1 = CreateTag("60+ FPS ENGINE", Color.FromArgb(56, 189, 248), 0);
+        var tag2 = CreateTag("ОФЛАЙН SNAPSHOT", Color.FromArgb(16, 185, 129), 160);
+        var tag3 = CreateTag("КАРТЫ & BASE64", Color.FromArgb(245, 158, 11), 320);
+        badgesRow.Controls.Add(tag1);
+        badgesRow.Controls.Add(tag2);
+        badgesRow.Controls.Add(tag3);
 
         loadingStatus.AutoSize = false;
-        loadingStatus.ForeColor = Color.FromArgb(114, 168, 255);
-        loadingStatus.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+        loadingStatus.ForeColor = Color.FromArgb(125, 211, 252);
+        loadingStatus.Font = new Font("Segoe UI", 11.5F, FontStyle.Bold);
         loadingStatus.TextAlign = ContentAlignment.MiddleCenter;
-        loadingStatus.Bounds = new Rectangle(30, 143, 590, 28);
-        loadingStatus.Text = "Скачивается...";
+        loadingStatus.Bounds = new Rectangle(30, 160, 660, 28);
+        loadingStatus.Text = "Проверка игровых ресурсов...";
 
         loadingFile.AutoSize = false;
-        loadingFile.ForeColor = Color.FromArgb(210, 219, 235);
+        loadingFile.ForeColor = Color.FromArgb(174, 187, 211);
         loadingFile.Font = new Font("Segoe UI", 9F);
         loadingFile.TextAlign = ContentAlignment.MiddleCenter;
         loadingFile.AutoEllipsis = true;
-        loadingFile.Bounds = new Rectangle(30, 174, 590, 25);
-        loadingFile.Text = "Подключаюсь к logic-arrows.io";
+        loadingFile.Bounds = new Rectangle(30, 190, 660, 24);
+        loadingFile.Text = "Синхронизация с logic-arrows.io";
 
         loadingProgress.Progress = 0;
-        loadingProgress.TrackColor = Color.FromArgb(52, 62, 85);
-        loadingProgress.ProgressColor = Color.FromArgb(105, 171, 255);
-        loadingProgress.Bounds = new Rectangle(36, 215, 578, 14);
+        loadingProgress.TrackColor = Color.FromArgb(30, 38, 56);
+        loadingProgress.ProgressColor = Color.FromArgb(56, 189, 248);
+        loadingProgress.GradientEndColor = Color.FromArgb(16, 185, 129);
+        loadingProgress.Bounds = new Rectangle(50, 224, 620, 12);
 
         loadingCount.AutoSize = false;
-        loadingCount.ForeColor = Color.FromArgb(176, 190, 215);
-        loadingCount.Font = new Font("Segoe UI", 9F);
+        loadingCount.ForeColor = Color.FromArgb(148, 163, 184);
+        loadingCount.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
         loadingCount.TextAlign = ContentAlignment.MiddleCenter;
-        loadingCount.Bounds = new Rectangle(30, 237, 590, 24);
-        loadingCount.Text = "Проверено 0 из 0";
+        loadingCount.Bounds = new Rectangle(30, 242, 660, 22);
+        loadingCount.Text = "0%  •  0 / 141 проверено";
 
-        playButton.Text = "Играть";
-        playButton.Bounds = new Rectangle(64, 282, 522, 50);
+        playButton.Text = "▶   ИГРАТЬ";
+        playButton.Bounds = new Rectangle(70, 286, 580, 56);
         playButton.FlatStyle = FlatStyle.Flat;
         playButton.FlatAppearance.BorderSize = 0;
-        playButton.BackColor = Color.FromArgb(48, 174, 112);
+        playButton.BackColor = Color.FromArgb(16, 185, 129);
+        playButton.GradientEndColor = Color.FromArgb(5, 150, 105);
         playButton.ForeColor = Color.White;
-        playButton.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-        playButton.CornerRadius = 15;
+        playButton.Font = new Font("Segoe UI", 13F, FontStyle.Bold);
+        playButton.CornerRadius = 14;
+        playButton.BorderColor = Color.FromArgb(52, 211, 153);
+        playButton.BorderThickness = 1;
         playButton.Cursor = Cursors.Hand;
         playButton.Visible = false;
         playButton.Enabled = false;
+        playButton.Click += PlayButton_Click;
+
+        BuildUpdateBanner();
 
         loadingError.AutoSize = false;
-        loadingError.ForeColor = Color.FromArgb(255, 164, 164);
-        loadingError.Font = new Font("Segoe UI", 8.5F);
+        loadingError.ForeColor = Color.FromArgb(252, 165, 165);
+        loadingError.BackColor = Color.FromArgb(40, 20, 24);
+        loadingError.Font = new Font("Segoe UI", 9F);
         loadingError.TextAlign = ContentAlignment.MiddleCenter;
         loadingError.AutoEllipsis = true;
-        loadingError.Bounds = new Rectangle(30, 282, 590, 100);
+        loadingError.Bounds = new Rectangle(70, 286, 580, 80);
         loadingError.Text = "";
         loadingError.Visible = false;
 
         loadingVersion.AutoSize = false;
-        loadingVersion.ForeColor = Color.FromArgb(128, 145, 174);
+        loadingVersion.ForeColor = Color.FromArgb(100, 116, 145);
         loadingVersion.Font = new Font("Segoe UI", 8.5F);
         loadingVersion.TextAlign = ContentAlignment.MiddleCenter;
-        loadingVersion.Bounds = new Rectangle(30, 449, 590, 24);
-        loadingVersion.Text = "v1.1.5  •  Windows x64  •  self-contained";
+        loadingVersion.Bounds = new Rectangle(30, 484, 660, 22);
+        loadingVersion.Text = "v1.1.5  •  Windows x64  •  Self-contained  •  ";
 
-        loadingCard.Controls.Add(loadingKicker);
-        loadingCard.Controls.Add(loadingTitle);
-        loadingCard.Controls.Add(loadingDescription);
+        checkUpdatesLink.AutoSize = true;
+        checkUpdatesLink.LinkColor = Color.FromArgb(56, 189, 248);
+        checkUpdatesLink.ActiveLinkColor = Color.FromArgb(125, 211, 252);
+        checkUpdatesLink.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+        checkUpdatesLink.Text = "Проверить обновления";
+        checkUpdatesLink.Location = new Point(475, 484);
+        checkUpdatesLink.LinkClicked += async (_, _) => await ManualCheckUpdatesAsync();
+
+        loadingCard.Controls.Add(heroTitle);
+        loadingCard.Controls.Add(heroSubtitle);
+        loadingCard.Controls.Add(badgesRow);
         loadingCard.Controls.Add(loadingStatus);
         loadingCard.Controls.Add(loadingFile);
         loadingCard.Controls.Add(loadingProgress);
         loadingCard.Controls.Add(loadingCount);
         loadingCard.Controls.Add(playButton);
+        loadingCard.Controls.Add(updateBanner);
         loadingCard.Controls.Add(loadingError);
+        loadingCard.Controls.Add(checkUpdatesLink);
         loadingCard.Controls.Add(loadingVersion);
+
         CenterLoadingCard();
+    }
+
+    private void BuildUpdateBanner()
+    {
+        updateBanner.Bounds = new Rectangle(70, 360, 580, 94);
+        updateBanner.BackColor = Color.FromArgb(14, 32, 54);
+        updateBanner.BorderColor = Color.FromArgb(2, 132, 199);
+        updateBanner.BorderThickness = 1;
+        updateBanner.CornerRadius = 14;
+        updateBanner.Visible = false;
+
+        updateBannerTitle.AutoSize = false;
+        updateBannerTitle.ForeColor = Color.FromArgb(56, 189, 248);
+        updateBannerTitle.Font = new Font("Segoe UI", 10.5F, FontStyle.Bold);
+        updateBannerTitle.Location = new Point(16, 14);
+        updateBannerTitle.Size = new Size(370, 26);
+        updateBannerTitle.Text = "🚀 Доступно обновление!";
+
+        updateBannerNotes.AutoSize = false;
+        updateBannerNotes.ForeColor = Color.FromArgb(186, 230, 253);
+        updateBannerNotes.Font = new Font("Segoe UI", 8.5F);
+        updateBannerNotes.Location = new Point(16, 42);
+        updateBannerNotes.Size = new Size(370, 40);
+        updateBannerNotes.AutoEllipsis = true;
+        updateBannerNotes.Text = "Нажмите кнопку справа для автоматического обновления.";
+
+        updateBannerBtn.Text = "Обновить";
+        updateBannerBtn.Bounds = new Rectangle(400, 22, 160, 48);
+        updateBannerBtn.FlatStyle = FlatStyle.Flat;
+        updateBannerBtn.FlatAppearance.BorderSize = 0;
+        updateBannerBtn.BackColor = Color.FromArgb(2, 132, 199);
+        updateBannerBtn.GradientEndColor = Color.FromArgb(37, 99, 235);
+        updateBannerBtn.ForeColor = Color.White;
+        updateBannerBtn.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+        updateBannerBtn.CornerRadius = 10;
+        updateBannerBtn.Cursor = Cursors.Hand;
+        updateBannerBtn.Click += (_, _) => TriggerAutoUpdate();
+
+        updateBanner.Controls.Add(updateBannerTitle);
+        updateBanner.Controls.Add(updateBannerNotes);
+        updateBanner.Controls.Add(updateBannerBtn);
+    }
+
+    private static Label CreateTag(string text, Color color, int x)
+    {
+        return new Label
+        {
+            Text = text,
+            ForeColor = color,
+            BackColor = Color.FromArgb(25, color.R, color.G, color.B),
+            Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
+            TextAlign = ContentAlignment.MiddleCenter,
+            Bounds = new Rectangle(x, 0, 150, 24),
+        };
     }
 
     private async void LauncherForm_Shown(object? sender, EventArgs e)
     {
         if (initialized) return;
         initialized = true;
-        CenterLoadingCard();
-        await StartAsync();
+        _ = CheckUpdatesInBackgroundAsync();
+        await InitializeLauncherAsync();
     }
 
-    private async void PlayButton_Click(object? sender, EventArgs e)
+    private async Task CheckUpdatesInBackgroundAsync()
     {
-        if (isBusy || synchronizer is null || !synchronizer.HasRequiredCache()) return;
-        isBusy = true;
-        playButton.Enabled = false;
         try
         {
-            if (webView.CoreWebView2 is null)
+            var update = await LauncherUpdater.CheckForUpdatesAsync();
+            if (update is not null && !IsDisposed)
             {
-                await InitializeWebViewAsync();
+                availableUpdate = update;
+                BeginInvoke(new Action(() => ShowAvailableUpdate(update)));
+            }
+        }
+        catch { }
+    }
+
+    private async Task ManualCheckUpdatesAsync()
+    {
+        checkUpdatesLink.Text = "Проверяю...";
+        checkUpdatesLink.Enabled = false;
+        try
+        {
+            var update = await LauncherUpdater.CheckForUpdatesAsync();
+            if (update is not null)
+            {
+                availableUpdate = update;
+                ShowAvailableUpdate(update);
+                MessageBox.Show(
+                    $"Найдено обновление {update.TagName}!\r\n\r\n{update.ReleaseName}",
+                    "Обновление лаунчера",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
             }
             else
             {
-                interceptor?.SetSynchronizer(synchronizer);
-                if (!gamePageReady)
-                {
-                    gamePageReadySignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                    webView.CoreWebView2.Reload();
-                }
+                statusBadge.Text = "Актуальная версия";
+                statusBadge.BadgeColor = Color.FromArgb(16, 185, 129);
+                statusBadge.BackgroundColor = Color.FromArgb(12, 38, 28);
+                statusBadge.BorderColor = Color.FromArgb(22, 101, 52);
+                MessageBox.Show(
+                    "У вас установлена самая последняя версия лаунчера (v1.1.5).",
+                    "Обновлений нет",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
             }
-            await WaitForGamePageReadyAsync();
-            EnterGameFullscreen();
         }
-        catch (Microsoft.Web.WebView2.Core.WebView2RuntimeNotFoundException)
+        catch (Exception ex)
         {
-            ShowLaunchError("Не найден Microsoft Edge WebView2 Runtime. Установи Evergreen Runtime от Microsoft и запусти EXE ещё раз.", true);
-        }
-        catch (Exception exception)
-        {
-            ShowLaunchError(exception.Message, false);
+            MessageBox.Show(
+                $"Не удалось проверить обновления: {ex.Message}",
+                "Ошибка проверки",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
         }
         finally
         {
-            isBusy = false;
-            if (!isGameFullscreen)
-            {
-                var canPlay = synchronizer?.HasRequiredCache() == true;
-                playButton.Enabled = canPlay;
-            }
+            checkUpdatesLink.Text = "Проверить обновления";
+            checkUpdatesLink.Enabled = true;
         }
     }
 
-    private async Task StartAsync()
+    private void ShowAvailableUpdate(UpdateInfo update)
     {
-        if (isBusy || isGameFullscreen) return;
-        isBusy = true;
-        playButton.Visible = false;
+        statusBadge.Text = $"Доступно {update.TagName}";
+        statusBadge.BadgeColor = Color.FromArgb(56, 189, 248);
+        statusBadge.BackgroundColor = Color.FromArgb(14, 38, 58);
+        statusBadge.BorderColor = Color.FromArgb(2, 132, 199);
+        statusBadge.Width = 160;
+
+        updateButton.Text = $"⚡ {update.TagName}";
+        updateButton.Visible = true;
+
+        updateBannerTitle.Text = $"🚀 Доступна версия {update.TagName}!";
+        updateBannerNotes.Text = !string.IsNullOrWhiteSpace(update.ReleaseName) ? update.ReleaseName : "Нажмите для автоматического скачивания.";
+        updateBanner.Visible = true;
+    }
+
+    private async void TriggerAutoUpdate()
+    {
+        if (isUpdating || availableUpdate is null) return;
+        isUpdating = true;
+        updateButton.Enabled = false;
+        updateBannerBtn.Enabled = false;
         playButton.Enabled = false;
-        webView.Visible = false;
-        loadingOverlay.Visible = true;
-        loadingError.Visible = false;
-        loadingKicker.Text = "LOGIC ARROWS  /  LAUNCHER";
-        loadingTitle.Text = "Подготовка Logic Arrows";
-        loadingDescription.Text = "Официальный runtime загружается в память лаунчера.\r\nПосле проверки появится кнопка запуска.";
+
+        loadingStatus.Text = $"Скачивание {availableUpdate.TagName} с GitHub...";
+        loadingFile.Text = "Пожалуйста, подождите. Лаунчер обновится автоматически.";
         loadingProgress.Progress = 0;
-        loadingCount.Text = $"Проверено 0 из {ResourceCatalog.VersionSentinels.Count} ключевых файлов";
-        loadingStatus.Text = "Быстро проверяю версию...";
-        loadingStatus.ForeColor = Color.FromArgb(114, 168, 255);
-        loadingFile.Text = "Подключаюсь к logic-arrows.io";
-        headerTitle.Text = "Logic Arrows Launcher";
-        headerDetail.Text = "Синхронизирую официальный код в памяти";
-        CenterLoadingCard();
 
-        var previousSynchronizer = synchronizer;
-        AssetSynchronizer? nextSynchronizer = null;
+        var progress = new Progress<int>(percent =>
+        {
+            loadingProgress.Progress = percent;
+            loadingCount.Text = $"{percent}% скачано";
+        });
+
         try
         {
-            var updateStore = new UpdateStore(GetUpdatesDirectory());
-            nextSynchronizer = new AssetSynchronizer(updateStore);
-            var progress = new Progress<SyncProgress>(UpdateSyncProgress);
-            var summary = await nextSynchronizer.SyncAsync(progress, CancellationToken.None);
+            var tempExe = await LauncherUpdater.DownloadUpdateAsync(availableUpdate, progress);
+            loadingStatus.Text = "Обновление готово. Перезапуск...";
+            await Task.Delay(400);
+            LauncherUpdater.ApplyUpdateAndRestart(tempExe);
+        }
+        catch (Exception ex)
+        {
+            isUpdating = false;
+            updateButton.Enabled = true;
+            updateBannerBtn.Enabled = true;
+            playButton.Enabled = true;
+            loadingStatus.Text = "Ошибка загрузки обновления";
+            loadingFile.Text = ex.Message;
+            MessageBox.Show(
+                $"Не удалось загрузить обновление: {ex.Message}\r\n\r\nВы можете скачать его вручную со страницы релизов.",
+                "Ошибка обновления",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+    }
 
-            synchronizer = nextSynchronizer;
-            previousSynchronizer?.Dispose();
-            nextSynchronizer = null;
-            ShowReadyState(summary);
-        }
-        catch (Microsoft.Web.WebView2.Core.WebView2RuntimeNotFoundException)
+    private async Task InitializeLauncherAsync()
+    {
+        isBusy = true;
+        try
         {
-            nextSynchronizer?.Dispose();
-            synchronizer = previousSynchronizer;
-            ShowLaunchError("Не найден Microsoft Edge WebView2 Runtime. Установи Evergreen Runtime от Microsoft и запусти EXE ещё раз.", true);
+            var updatesDirectory = GetUpdatesDirectory();
+            var updateStore = new UpdateStore(updatesDirectory);
+            synchronizer = new AssetSynchronizer(updateStore);
+            interceptor = new LocalResourceInterceptor(synchronizer);
+
+            var progress = new Progress<SyncProgress>(ReportProgress);
+            var summary = await synchronizer.SyncAsync(progress, CancellationToken.None);
+
+            if (!synchronizer.HasRequiredCache())
+            {
+                ShowLaunchError(
+                    "Не удалось подготовить локальный кэш игры.\r\nПроверьте интернет-соединение и запустите лаунчер снова.",
+                    false);
+                return;
+            }
+
+            loadingStatus.Text = "Инициализация движка...";
+            loadingFile.Text = "Подготовка WebView2";
+            loadingProgress.Progress = 100;
+            loadingCount.Text = "100%  •  141 из 141 готово";
+
+            await InitializeWebViewAsync();
+
+            loadingStatus.Text = "Logic Arrows готова!";
+            loadingFile.Text = summary.Downloaded > 0
+                ? $"Загружено {summary.Downloaded} новых ресурсов"
+                : "Все ресурсы проверены и загружены из локального кэша";
+
+            playButton.Visible = true;
+            playButton.Enabled = true;
+            playButton.Focus();
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            nextSynchronizer?.Dispose();
-            synchronizer = previousSynchronizer;
-            if (previousSynchronizer?.HasRequiredCache() == true)
-            {
-                ShowReadyState(null, "Обновление не удалось; доступна предыдущая копия в памяти");
-            }
-            else
-            {
-                ShowLaunchError(exception.Message, false);
-            }
+            ShowLaunchError(ex.Message, false);
         }
         finally
         {
@@ -386,141 +552,128 @@ public sealed class LauncherForm : Form
         }
     }
 
-    private void ShowReadyState(SyncSummary? summary, string? customMessage = null)
+    private void ReportProgress(SyncProgress p)
     {
-        loadingOverlay.Visible = true;
-        webView.Visible = false;
-        loadingError.Visible = false;
-        loadingKicker.Text = "ГОТОВО К ЗАПУСКУ";
-        loadingTitle.Text = "Logic Arrows готова";
-        loadingDescription.Text = "Код проверен и готов к запуску.\r\nИгровая сцена откроется в fullscreen.";
-        loadingStatus.Text = summary?.FastVersionChecked == true
-            ? "Версия не изменилась"
-            : "Загрузка завершена";
-        loadingStatus.ForeColor = Color.FromArgb(114, 210, 150);
-        loadingFile.Text = summary?.FastVersionChecked == true
-            ? "Использую сохранённую версию"
-            : "Официальный код получен в память";
-        loadingProgress.Progress = 100;
-        loadingCount.Text = summary is null
-            ? "Предыдущая копия готова к запуску"
-            : summary.FastVersionChecked
-                ? $"Быстрая проверка: {summary.Checked} ключевых файлов, скачано 0"
-                : $"{summary.Downloaded} файлов готовы к запуску";
-        headerTitle.Text = "Logic Arrows Launcher";
-        headerDetail.Text = customMessage ?? "Код готов. Нажми «Играть» — вход в игру; Esc — меню игры; F1 — в лаунчер";
-        playButton.Visible = true;
-        playButton.Enabled = synchronizer?.HasRequiredCache() == true;
-        CenterLoadingCard();
-    }
-
-    private void UpdateSyncProgress(SyncProgress progress)
-    {
-        if (IsDisposed) return;
-        var percent = progress.Total <= 0
-            ? 0
-            : Math.Clamp((int)Math.Round(progress.Completed * 100.0 / progress.Total), 0, 100);
+        var percent = p.Total > 0 ? (int)((p.Completed * 100) / p.Total) : 0;
         loadingProgress.Progress = percent;
-        loadingCount.Text = $"Проверено {progress.Completed} из {progress.Total}  •  {percent}%";
-        loadingFile.Text = progress.AssetPath;
-        loadingStatus.Text = progress.IsError ? "Ошибка" : progress.Status;
-        loadingStatus.ForeColor = progress.IsError
-            ? Color.FromArgb(255, 170, 120)
-            : Color.FromArgb(114, 168, 255);
+        loadingCount.Text = $"{percent}%  •  {p.Completed} из {p.Total} файлов";
+        loadingFile.Text = p.AssetPath;
+        loadingStatus.Text = p.Status;
     }
 
     private async Task InitializeWebViewAsync()
     {
-        var userDataDirectory = Path.Combine(
+        var userDataFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "LogicArrowsLauncher",
-            "webview2-profile");
-        Directory.CreateDirectory(userDataDirectory);
+            "profile");
 
-        var environment = await CoreWebView2Environment.CreateAsync(
-            browserExecutableFolder: null,
-            userDataFolder: userDataDirectory,
-            options: null);
-        await webView.EnsureCoreWebView2Async(environment);
-        gamePageReady = false;
-        gamePageReadySignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+        await webView.EnsureCoreWebView2Async(env);
 
-        webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
-        webView.CoreWebView2.Settings.AreDevToolsEnabled = true;
-        webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
-        webView.CoreWebView2.Settings.IsZoomControlEnabled = true;
-        webView.CoreWebView2.NavigationCompleted -= NavigationCompleted;
-        webView.CoreWebView2.NavigationCompleted += NavigationCompleted;
-        webView.CoreWebView2.WebMessageReceived -= WebMessageReceivedHandler;
-        webView.CoreWebView2.WebMessageReceived += WebMessageReceivedHandler;
-        await webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(MapBridgeScript.Source);
         webViewController = GetWebViewController();
         if (webViewController is not null)
         {
-            webViewController.AcceleratorKeyPressed -= WebViewAcceleratorKeyPressed;
             webViewController.AcceleratorKeyPressed += WebViewAcceleratorKeyPressed;
         }
 
-        interceptor = new LocalResourceInterceptor(synchronizer!);
-        interceptor.Attach(webView.CoreWebView2);
-        webView.CoreWebView2.Navigate(ResourceCatalog.Origin + "/");
-        await WaitForGamePageReadyAsync();
+        webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
+        webView.CoreWebView2.Settings.AreDevToolsEnabled = true;
+        webView.CoreWebView2.Settings.IsZoomControlEnabled = false;
+
+        interceptor?.Attach(webView.CoreWebView2);
+        webView.CoreWebView2.NavigationCompleted += NavigationCompleted;
+        webView.CoreWebView2.WebMessageReceived += WebMessageReceivedHandler;
+
+        await webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(MapBridgeScript.Source);
+
+        gamePageReadySignal = new TaskCompletionSource<bool>();
+        webView.CoreWebView2.Navigate("https://logic-arrows.io/");
+        await gamePageReadySignal.Task;
     }
 
-    private async Task WaitForGamePageReadyAsync()
+    private void PlayButton_Click(object? sender, EventArgs e)
     {
-        if (gamePageReady) return;
-        var signal = gamePageReadySignal
-            ?? throw new InvalidOperationException("Страница Logic Arrows ещё не начала загрузку.");
-        await signal.Task.WaitAsync(TimeSpan.FromSeconds(45));
-        gamePageReady = true;
+        if (isBusy || !synchronizer?.HasRequiredCache() == true) return;
+        EnterGameFullscreen();
+    }
+
+    private void EnterGameFullscreen()
+    {
+        isGameFullscreen = true;
+        header.Visible = false;
+        loadingOverlay.Visible = false;
+        webView.Visible = true;
+
+        launcherWindowState = WindowState;
+        launcherBounds = Bounds;
+        launcherBorderStyle = FormBorderStyle;
+
+        SetGameWindowChromeVisible(false);
+        QueueGameViewFocus();
+    }
+
+    private void ExitGameFullscreen()
+    {
+        isGameFullscreen = false;
+        webView.Visible = false;
+        loadingOverlay.Visible = true;
+        header.Visible = true;
+
+        FormBorderStyle = launcherBorderStyle;
+        WindowState = launcherWindowState;
+        Bounds = launcherBounds;
+        CenterLoadingCard();
+    }
+
+    private void SetGameWindowChromeVisible(bool visible)
+    {
+        gameWindowChromeVisible = visible;
+        if (!visible)
+        {
+            FormBorderStyle = FormBorderStyle.None;
+            WindowState = FormWindowState.Maximized;
+        }
+        else
+        {
+            FormBorderStyle = FormBorderStyle.Sizable;
+            WindowState = FormWindowState.Normal;
+            Bounds = launcherBounds;
+        }
     }
 
     private void WebMessageReceivedHandler(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
-        if (!Uri.TryCreate(e.Source, UriKind.Absolute, out var source) ||
-            !string.Equals(source.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(source.Host, new Uri(ResourceCatalog.Origin).Host, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
         try
         {
-            using var document = JsonDocument.Parse(e.WebMessageAsJson);
-            var root = document.RootElement;
-            if (root.ValueKind != JsonValueKind.Object ||
-                !root.TryGetProperty("channel", out var channel) ||
-                !string.Equals(channel.GetString(), MapBridgeScript.Channel, StringComparison.Ordinal))
+            using var doc = JsonDocument.Parse(e.WebMessageAsJson);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("type", out var type))
             {
-                return;
-            }
-
-            if (root.TryGetProperty("type", out var type) && type.GetString() == "export-request")
-            {
-                if (isGameFullscreen && !exportInProgress)
+                var typeStr = type.GetString();
+                if (typeStr == "export-request")
                 {
-                    _ = ExportCurrentMapAsync();
+                    if (isGameFullscreen && !exportInProgress) _ = ExportCurrentMapAsync();
+                }
+                else if (typeStr == "import-request")
+                {
+                    var text = root.TryGetProperty("text", out var textElement) ? textElement.GetString() : null;
+                    if (isGameFullscreen && !lobbyImportInProgress && text is not null)
+                    {
+                        _ = ImportFromLobbyAsync(text);
+                    }
+                }
+                else if (typeStr == "bridge-error")
+                {
+                    var message = root.TryGetProperty("message", out var val) ? val.GetString() : null;
+                    if (!string.IsNullOrWhiteSpace(message))
+                    {
+                        headerSubtitle.Text = message;
+                    }
                 }
             }
-            else if (root.TryGetProperty("type", out type) && type.GetString() == "import-request")
-            {
-                var text = root.TryGetProperty("text", out var textElement) ? textElement.GetString() : null;
-                if (isGameFullscreen && !lobbyImportInProgress && text is not null)
-                {
-                    _ = ImportFromLobbyAsync(text);
-                }
-            }
-            else if (root.TryGetProperty("type", out type) && type.GetString() == "bridge-error")
-            {
-                var message = root.TryGetProperty("message", out var value) ? value.GetString() : null;
-                if (!string.IsNullOrWhiteSpace(message)) headerDetail.Text = message;
-            }
         }
-        catch (JsonException)
-        {
-            // Ignore malformed messages from page content.
-        }
+        catch { }
     }
 
     private async Task ImportFromLobbyAsync(string text)
@@ -549,24 +702,6 @@ public sealed class LauncherForm : Form
         }
     }
 
-    private static void EnsureBridgeSuccess(string response, string fallback)
-    {
-        using var document = JsonDocument.Parse(response);
-        var root = document.RootElement;
-        if (root.ValueKind != JsonValueKind.Object)
-        {
-            throw new InvalidDataException(fallback);
-        }
-        if (root.TryGetProperty("error", out var error))
-        {
-            throw new InvalidDataException(error.GetString() ?? fallback);
-        }
-        if (!root.TryGetProperty("ok", out var ok) || ok.ValueKind != JsonValueKind.True)
-        {
-            throw new InvalidDataException(fallback);
-        }
-    }
-
     private async Task ExportCurrentMapAsync()
     {
         if (exportInProgress || webView.CoreWebView2 is null) return;
@@ -574,56 +709,50 @@ public sealed class LauncherForm : Form
         try
         {
             var response = await webView.CoreWebView2.ExecuteScriptAsync(
-                "globalThis.__logicArrowsLauncherExport?.() ?? ({error:'Экспорт недоступен'})");
-            using var document = JsonDocument.Parse(response);
-            var root = document.RootElement;
-            if (root.ValueKind != JsonValueKind.Object)
+                "globalThis.__logicArrowsLauncherExport?.() ?? ({error:'Функция экспорта недоступна.'})");
+
+            using var doc = JsonDocument.Parse(response);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("error", out var errorProp))
             {
-                throw new InvalidDataException("Экспорт карты недоступен.");
-            }
-            if (root.TryGetProperty("error", out var error))
-            {
-                throw new InvalidDataException(error.GetString() ?? "Экспорт карты отклонён.");
+                throw new InvalidDataException(errorProp.GetString() ?? "Ошибка экспорта.");
             }
 
-            var data = root.TryGetProperty("data", out var dataElement) ? dataElement.GetString() : null;
-            if (string.IsNullOrWhiteSpace(data)) throw new InvalidDataException("Игра не вернула данные карты.");
-            var version = root.TryGetProperty("version", out var versionElement)
-                ? versionElement.GetString()
-                : ResourceCatalog.CurrentVersion;
-            var mapId = root.TryGetProperty("mapId", out var mapIdElement) ? mapIdElement.GetString() : null;
-            var mapName = root.TryGetProperty("mapName", out var mapNameElement) ? mapNameElement.GetString() : null;
+            var data = root.GetProperty("data").GetString()!;
+            var mapId = root.TryGetProperty("mapId", out var idProp) ? idProp.GetString() : null;
+            var mapName = root.TryGetProperty("mapName", out var nameProp) ? nameProp.GetString() : null;
+
             var envelope = new MapFileEnvelope
             {
-                SiteVersion = version ?? ResourceCatalog.CurrentVersion,
                 MapId = mapId,
                 MapName = mapName,
                 Data = data,
             };
 
+            var defaultName = string.IsNullOrWhiteSpace(mapName) ? (mapId ?? "map") : mapName;
+            foreach (var c in Path.GetInvalidFileNameChars()) defaultName = defaultName.Replace(c, '_');
+
             using var dialog = new SaveFileDialog
             {
                 Title = "Экспорт карты Logic Arrows",
-                Filter = "Logic Arrows map (*.map)|*.map|Все файлы (*.*)|*.*",
+                Filter = "Logic Arrows Map (*.map)|*.map",
+                FileName = $"{defaultName}.map",
                 DefaultExt = "map",
-                AddExtension = true,
-                OverwritePrompt = true,
-                RestoreDirectory = true,
-                FileName = BuildMapFileName(mapName),
             };
+
             if (dialog.ShowDialog(this) == DialogResult.OK)
             {
                 MapFileService.Write(dialog.FileName, envelope);
-                await NotifyMapPageAsync("Экспорт .map сохранён", false);
+                await NotifyMapPageAsync("Карта сохранена в .map");
             }
             else
             {
-                await NotifyMapPageAsync("Экспорт отменён", false);
+                await NotifyMapPageAsync("Экспорт отменён");
             }
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            try { await NotifyMapPageAsync(exception.Message, true); } catch { }
+            try { await NotifyMapPageAsync(ex.Message, true); } catch { }
         }
         finally
         {
@@ -631,177 +760,52 @@ public sealed class LauncherForm : Form
         }
     }
 
-    private async Task NotifyMapPageAsync(string message, bool isError)
+    private async Task NotifyMapPageAsync(string message, bool isError = false)
     {
         if (webView.CoreWebView2 is null) return;
-        var safeMessage = JsonSerializer.Serialize(message);
-        var errorLiteral = isError ? "true" : "false";
+        var encoded = JsonSerializer.Serialize(message);
+        var errStr = isError ? "true" : "false";
         await webView.CoreWebView2.ExecuteScriptAsync(
-            $"globalThis.__logicArrowsLauncherNotify?.({safeMessage}, {errorLiteral})");
+            $"globalThis.__logicArrowsLauncherNotify?.({encoded}, {errStr});");
     }
 
-    private static string BuildMapFileName(string? mapName)
+    private static void EnsureBridgeSuccess(string response, string fallback)
     {
-        var name = string.IsNullOrWhiteSpace(mapName) ? "logic-arrows-map" : mapName.Trim();
-        foreach (var invalid in Path.GetInvalidFileNameChars()) name = name.Replace(invalid, '_');
-        return string.IsNullOrWhiteSpace(name) ? "logic-arrows-map.map" : $"{name}.map";
-    }
-
-    private void EnterGameFullscreen()
-    {
-        if (isGameFullscreen) return;
-        launcherBorderStyle = FormBorderStyle;
-        launcherWindowState = WindowState;
-        launcherBounds = Bounds;
-        isGameFullscreen = true;
-        gameWindowChromeVisible = false;
-        loadingOverlay.Visible = false;
-        header.Visible = false;
-        webView.Visible = true;
-        FormBorderStyle = FormBorderStyle.None;
-        WindowState = FormWindowState.Maximized;
-        QueueGameViewFocus();
-    }
-
-    private void ExitGameFullscreen()
-    {
-        if (!isGameFullscreen) return;
-        isGameFullscreen = false;
-        gameWindowChromeVisible = false;
-        focusRequestId++;
-        Text = "Logic Arrows Launcher";
-        FormBorderStyle = launcherBorderStyle;
-        WindowState = launcherWindowState;
-        if (!launcherBounds.IsEmpty && launcherWindowState == FormWindowState.Normal)
+        using var doc = JsonDocument.Parse(response);
+        var root = doc.RootElement;
+        if (root.TryGetProperty("error", out var err))
         {
-            Bounds = launcherBounds;
+            throw new InvalidDataException(err.GetString() ?? fallback);
         }
-        header.Visible = true;
-        ShowReadyState(null, "Игра закрыта в fullscreen. Нажми «Играть», чтобы открыть её снова");
-    }
-
-    private void SetGameWindowChromeVisible(bool visible)
-    {
-        if (!isGameFullscreen) return;
-        gameWindowChromeVisible = visible;
-        header.Visible = false;
-        Text = visible ? "Logic Arrows" : "";
-
-        // Recreate the non-client area while keeping the form maximized.
-        SuspendLayout();
-        try
+        if (!root.TryGetProperty("ok", out var ok) || ok.ValueKind != JsonValueKind.True)
         {
-            WindowState = FormWindowState.Normal;
-            FormBorderStyle = visible ? launcherBorderStyle : FormBorderStyle.None;
-            WindowState = FormWindowState.Maximized;
-        }
-        finally
-        {
-            ResumeLayout(performLayout: true);
-        }
-        QueueGameViewFocus();
-    }
-
-    private void RequestNativeFocusRecovery()
-    {
-        if (!isGameFullscreen || !appIsActive || IsDisposed || !IsHandleCreated || nativeFocusRecoveryQueued) return;
-        var now = Environment.TickCount64;
-        if (lastNativeFocusRecoveryTick >= 0 && now - lastNativeFocusRecoveryTick < 250) return;
-        lastNativeFocusRecoveryTick = now;
-        nativeFocusRecoveryQueued = true;
-        try
-        {
-            BeginInvoke(new Action(() =>
-            {
-                nativeFocusRecoveryQueued = false;
-                if (!IsDisposed && isGameFullscreen && appIsActive) QueueGameViewFocus();
-            }));
-        }
-        catch (InvalidOperationException)
-        {
-            nativeFocusRecoveryQueued = false;
-        }
-    }
-
-    protected override void WndProc(ref Message m)
-    {
-        base.WndProc(ref m);
-        if (!isGameFullscreen || IsDisposed || !IsHandleCreated) return;
-
-        if (m.Msg == WM_ACTIVATEAPP)
-        {
-            appIsActive = m.WParam != IntPtr.Zero;
-            if (!appIsActive) focusRequestId++;
-            else RequestNativeFocusRecovery();
-        }
-        else if (m.Msg == WM_ACTIVATE && m.WParam != IntPtr.Zero)
-        {
-            RequestNativeFocusRecovery();
-        }
-        else if (m.Msg == WM_SETFOCUS)
-        {
-            RequestNativeFocusRecovery();
+            throw new InvalidDataException(fallback);
         }
     }
 
     private void LauncherForm_Activated(object? sender, EventArgs e)
     {
         appIsActive = true;
-        if (!isGameFullscreen || IsDisposed || !IsHandleCreated) return;
-        try
-        {
-            BeginInvoke(new Action(() =>
-            {
-                if (!IsDisposed && isGameFullscreen)
-                {
-                    QueueGameViewFocus();
-                }
-            }));
-        }
-        catch (InvalidOperationException)
-        {
-            // The form can be between activation and handle recreation.
-        }
+        if (isGameFullscreen) QueueGameViewFocus();
     }
 
     private void LauncherForm_Deactivate(object? sender, EventArgs e)
     {
         appIsActive = false;
-        if (isGameFullscreen)
-        {
-            // Cancel delayed attempts while another window owns keyboard focus.
-            focusRequestId++;
-        }
+        focusRequestId++;
     }
 
     private async void QueueGameViewFocus()
     {
         if (IsDisposed || !IsHandleCreated) return;
-        var requestId = ++focusRequestId;
-        for (var attempt = 0; attempt < 6; attempt++)
+        var req = ++focusRequestId;
+        for (var i = 0; i < 5; i++)
         {
-            if (attempt > 0)
-            {
-                try { await Task.Delay(80); }
-                catch (ObjectDisposedException) { return; }
-            }
-            if (IsDisposed || !isGameFullscreen || !appIsActive || requestId != focusRequestId) return;
+            if (i > 0) await Task.Delay(80);
+            if (IsDisposed || !isGameFullscreen || !appIsActive || req != focusRequestId) return;
             webView.Visible = true;
             webView.Focus();
-            try
-            {
-                webViewController?.MoveFocus(CoreWebView2MoveFocusReason.Programmatic);
-            }
-            catch (COMException)
-            {
-                // WebView2 can reject focus while its child window is recreating.
-            }
-            catch (InvalidOperationException)
-            {
-                // The controller may be between navigation and HWND creation.
-            }
-            webView.Select();
-            webView.Focus();
+            try { webViewController?.MoveFocus(CoreWebView2MoveFocusReason.Programmatic); } catch { }
             try
             {
                 if (webView.CoreWebView2 is not null)
@@ -810,14 +814,7 @@ public sealed class LauncherForm : Form
                         "globalThis.__logicArrowsLauncherRecoverInput?.(); globalThis.focus?.(); document.querySelector('canvas')?.focus?.({preventScroll:true});");
                 }
             }
-            catch (COMException)
-            {
-                // The page can be between navigation and activation.
-            }
-            catch (InvalidOperationException)
-            {
-                // WebView2 can reject script execution during recreation.
-            }
+            catch { }
         }
     }
 
@@ -836,33 +833,21 @@ public sealed class LauncherForm : Form
         return base.ProcessCmdKey(ref msg, keyData);
     }
 
-    private void WebViewAcceleratorKeyPressed(
-        object? sender,
-        CoreWebView2AcceleratorKeyPressedEventArgs e)
+    private void WebViewAcceleratorKeyPressed(object? sender, CoreWebView2AcceleratorKeyPressedEventArgs e)
     {
         if (e.KeyEventKind is not (CoreWebView2KeyEventKind.KeyDown or CoreWebView2KeyEventKind.SystemKeyDown) ||
-            (e.KeyEventLParam & (1u << 30)) != 0)
-        {
-            return;
-        }
+            (e.KeyEventLParam & (1u << 30)) != 0) return;
 
-        var virtualKey = e.VirtualKey;
-        if (virtualKey == (uint)Keys.F11 ||
-            (virtualKey == (uint)Keys.F1 && isGameFullscreen))
+        var key = e.VirtualKey;
+        if (key == (uint)Keys.F11 || (key == (uint)Keys.F1 && isGameFullscreen))
         {
             e.Handled = true;
             if (!IsDisposed && IsHandleCreated)
             {
                 BeginInvoke(new Action(() =>
                 {
-                    if (virtualKey == (uint)Keys.F11)
-                    {
-                        ToggleGameFullscreen();
-                    }
-                    else if (virtualKey == (uint)Keys.F1 && isGameFullscreen)
-                    {
-                        ExitGameFullscreen();
-                    }
+                    if (key == (uint)Keys.F11) ToggleGameFullscreen();
+                    else if (key == (uint)Keys.F1 && isGameFullscreen) ExitGameFullscreen();
                 }));
             }
         }
@@ -871,21 +856,13 @@ public sealed class LauncherForm : Form
     private CoreWebView2Controller? GetWebViewController()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        return typeof(WebView2)
-            .GetField("_coreWebView2Controller", flags)
-            ?.GetValue(webView) as CoreWebView2Controller;
+        return typeof(WebView2).GetField("_coreWebView2Controller", flags)?.GetValue(webView) as CoreWebView2Controller;
     }
 
     private void ToggleGameFullscreen()
     {
-        if (isGameFullscreen)
-        {
-            SetGameWindowChromeVisible(!gameWindowChromeVisible);
-        }
-        else if (!isBusy && synchronizer?.HasRequiredCache() == true)
-        {
-            playButton.PerformClick();
-        }
+        if (isGameFullscreen) SetGameWindowChromeVisible(!gameWindowChromeVisible);
+        else if (!isBusy && synchronizer?.HasRequiredCache() == true) playButton.PerformClick();
     }
 
     private void NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
@@ -893,41 +870,28 @@ public sealed class LauncherForm : Form
         if (!e.IsSuccess)
         {
             gamePageReady = false;
-            gamePageReadySignal?.TrySetException(
-                new InvalidOperationException($"Ошибка WebView2: {e.WebErrorStatus}"));
-            headerDetail.Text = $"Ошибка WebView2: {e.WebErrorStatus}";
+            gamePageReadySignal?.TrySetException(new InvalidOperationException($"Ошибка WebView2: {e.WebErrorStatus}"));
+            loadingStatus.Text = $"Ошибка WebView2: {e.WebErrorStatus}";
             return;
         }
         gamePageReady = true;
         gamePageReadySignal?.TrySetResult(true);
-        if (isGameFullscreen)
-        {
-            QueueGameViewFocus();
-        }
-        else
-        {
-            headerDetail.Text = "Игра готова. Нажми «Играть», чтобы открыть её во весь экран";
-        }
+        if (isGameFullscreen) QueueGameViewFocus();
     }
 
     private void ShowLaunchError(string message, bool runtimeError)
     {
         webView.Visible = false;
         loadingOverlay.Visible = true;
-        loadingKicker.Text = "ЗАПУСК ОСТАНОВЛЕН";
-        loadingTitle.Text = runtimeError ? "Не найден компонент запуска" : "Не удалось загрузить Logic Arrows";
-        loadingDescription.Text = "Исправь причину ниже и запусти лаунчер ещё раз.";
-        loadingStatus.Text = runtimeError ? "Нужен WebView2 Runtime" : "Ошибка загрузки";
-        loadingStatus.ForeColor = Color.FromArgb(255, 145, 145);
-        loadingFile.Text = "Перезапусти лаунчер после исправления причины";
-        loadingCount.Text = "Код в памяти не получен";
+        heroTitle.Text = "ОШИБКА ЗАПУСКА";
+        heroSubtitle.Text = runtimeError ? "Требуется WebView2 Runtime" : "Не удалось загрузить игру";
+        loadingStatus.Text = runtimeError ? "Нужен Microsoft WebView2" : "Ошибка сетевой синхронизации";
+        loadingStatus.ForeColor = Color.FromArgb(248, 113, 113);
+        loadingFile.Text = "Проверьте подключение к сети и перезапустите лаунчер.";
         loadingProgress.Progress = 0;
-        loadingError.Text = message.Length > 620 ? message[..620] + "…" : message;
+        loadingError.Text = message;
         loadingError.Visible = true;
         playButton.Visible = false;
-        playButton.Enabled = false;
-        headerTitle.Text = "Logic Arrows Launcher";
-        headerDetail.Text = "Запуск остановлен; подробность показана по центру";
         CenterLoadingCard();
     }
 
@@ -941,18 +905,7 @@ public sealed class LauncherForm : Form
 
     private void OpenExternalUrl(string url)
     {
-        try
-        {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = url,
-                UseShellExecute = true,
-            });
-        }
-        catch (Exception exception)
-        {
-            headerDetail.Text = $"Не удалось открыть ссылку: {exception.Message}";
-        }
+        try { Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true }); } catch { }
     }
 
     private static string GetUpdatesDirectory()
