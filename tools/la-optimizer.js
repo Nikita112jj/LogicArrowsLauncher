@@ -34,6 +34,14 @@ const LA_SOURCES = new Set([2, 9, 21, 24]);
 // AND (16) и защёлка (18) требуют два одновременных входных импульса.
 const LA_MIN_INPUTS = { 16: 2, 18: 2 };
 
+// Защищённые типы: 23 — цель уровня, 25 — декоративная стрелка («Does nothing»
+// в бандле, голубая — из неё рисуют пиксель-арт). Любой НЕИЗВЕСТНЫЙ тип тоже
+// считаем декором: лучше сохранить лишнее, чем удалить работающую схему.
+const LA_KNOWN_TYPES = new Set([...Object.keys(LA_OFF).map(Number), 25]);
+function laIsDecor(type) {
+  return type === 25 || type === 23 || !LA_KNOWN_TYPES.has(type);
+}
+
 // Цель смещения в глобальных координатах (реплика h() из бандла).
 function laRelTarget(cell, dx, dy) {
   const c = cell.flipped ? -dy : dy;
@@ -116,21 +124,21 @@ function laBuildGraph(cells) {
   return { byKey, inEdges };
 }
 
-// Этап 2: удалить клетки, которые никогда не сработают.
+// Этап 2: удалить клетки, которые никогда не сработают (декор не трогаем).
 function laSafePrune(cells) {
   let alive = cells.slice();
   const removed = [];
   while (true) {
     const { byKey, inEdges } = laBuildGraph(alive);
     const live = laComputeFiring(alive, byKey, inEdges);
-    if (live.size === alive.length) return { kept: alive, removed };
-    const next = [];
-    for (const c of alive) (live.has(c) ? next : removed).push(c);
+    const next = alive.filter(c => live.has(c) || laIsDecor(c.type));
+    if (next.length === alive.length) return { kept: alive, removed };
+    for (const c of alive) if (!next.includes(c)) removed.push(c);
     alive = next;
   }
 }
 
-// Этап 3 (опция): срезать клетки, чей сигнал ни к кому не приходит.
+// Этап 3 (опция): срезать клетки, чей сигнал ни к кому не приходит (декор не трогаем).
 function laDeepTrim(cells) {
   let alive = cells.slice();
   const removed = [];
@@ -140,7 +148,7 @@ function laDeepTrim(cells) {
     const byKey = laBuildIndex(alive);
     const next = [];
     for (const c of alive) {
-      let hasEffect = c.type === 23; // цель уровня не срезаем
+      let hasEffect = laIsDecor(c.type); // цель уровня и декор не срезаем
       if (!hasEffect) {
         for (const [dx, dy] of laOutOffsets(c)) {
           const [tx, ty] = laRelTarget(c, dx, dy);
@@ -153,6 +161,43 @@ function laDeepTrim(cells) {
     alive = next;
   }
   return { kept: alive, removed };
+}
+
+// Защита пиксель-арта из декоративных стрелок: для каждой 8-связной
+// компоненты декора фиксируем её столбцы и ряды (bbox), чтобы сжатие
+// не искажало рисунок (цифры индикатора и т.п.).
+function laDecorProtection(cells) {
+  const decor = cells.filter(c => laIsDecor(c.type) && c.type !== 23);
+  const pos = new Set(decor.map(c => laKey(c.x, c.y)));
+  const byKey = laBuildIndex(decor);
+  const seen = new Set();
+  const pCols = new Set(), pRows = new Set();
+  for (const d of decor) {
+    const startKey = laKey(d.x, d.y);
+    if (seen.has(startKey)) continue;
+    seen.add(startKey);
+    const stack = [d];
+    let minX = d.x, maxX = d.x, minY = d.y, maxY = d.y;
+    while (stack.length > 0) {
+      const c = stack.pop();
+      if (c.x < minX) minX = c.x;
+      if (c.x > maxX) maxX = c.x;
+      if (c.y < minY) minY = c.y;
+      if (c.y > maxY) maxY = c.y;
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const nk = laKey(c.x + dx, c.y + dy);
+          if (pos.has(nk) && !seen.has(nk)) {
+            seen.add(nk);
+            stack.push(byKey.get(nk));
+          }
+        }
+      }
+    }
+    for (let x = minX; x <= maxX; x++) pCols.add(x);
+    for (let y = minY; y <= maxY; y++) pRows.add(y);
+  }
+  return { pCols, pRows };
 }
 
 // Этап 4: сжатие пустот, сохраняющее все соединения и расстояния-прыжки.
@@ -168,9 +213,10 @@ function laCompact(cells) {
   const minX = Math.min(...xs), maxX = Math.max(...xs);
   const minY = Math.min(...ys), maxY = Math.max(...ys);
 
+  const { pCols, pRows } = laDecorProtection(cells);
   const Sx = new Set(), Sy = new Set();
-  for (let x = minX; x <= maxX; x++) if (!xs.has(x)) Sx.add(x);
-  for (let y = minY; y <= maxY; y++) if (!ys.has(y)) Sy.add(y);
+  for (let x = minX; x <= maxX; x++) if (!xs.has(x) && !pCols.has(x)) Sx.add(x);
+  for (let y = minY; y <= maxY; y++) if (!ys.has(y) && !pRows.has(y)) Sy.add(y);
 
   // Ограничения по исходным координатам.
   const byKey = laBuildIndex(cells);
@@ -333,5 +379,5 @@ function laOptimize(cells, options) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { laOptimize, laRelTarget, laMechOffsets, laSafePrune, laDeepTrim, laCompact, LA_OFF };
+  module.exports = { laOptimize, laRelTarget, laMechOffsets, laSafePrune, laDeepTrim, laCompact, laIsDecor, laDecorProtection, LA_OFF };
 }

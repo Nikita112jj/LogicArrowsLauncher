@@ -65,6 +65,13 @@ public static class MapOptimizer
     // Источники: сигнал есть без внешнего входа (источник, генератор, кнопки).
     private static readonly HashSet<int> Sources = new() { 2, 9, 21, 24 };
 
+    // Защищённые типы: 23 — цель уровня, 25 — декоративная стрелка («Does
+    // nothing» в бандле, голубая — из неё рисуют пиксель-арт). Любой
+    // НЕИЗВЕСТНЫЙ тип тоже декор: лучше сохранить лишнее, чем удалить схему.
+    private static readonly HashSet<int> KnownTypes = new(Offsets.Keys.Concat(new[] { 3, 25 }));
+
+    private static bool IsDecor(int type) => type == 25 || type == 23 || !KnownTypes.Contains(type);
+
     private static int MinInputs(int type) => type is 16 or 18 ? 2 : 1;
 
     private static (int X, int Y) RelTarget(int x, int y, int rotation, bool flipped, int dx, int dy)
@@ -195,14 +202,16 @@ public static class MapOptimizer
         while (true)
         {
             var live = ComputeFiring(alive);
-            if (live.Count == alive.Count) return (alive, removed, false);
-            if (live.Count == 0)
+            // Декор (тип 25, цель уровня, неизвестные типы) никогда не удаляем.
+            var next = alive.Where(c => live.Contains(c) || IsDecor(c.Type)).ToList();
+            if (next.Count == alive.Count) return (alive, removed, false);
+            if (next.Count == 0)
             {
                 // Нет ни одного источника — отменяем чистку целиком.
                 return (new List<CellRef>(cells), 0, true);
             }
-            removed += alive.Count - live.Count;
-            alive = alive.Where(live.Contains).ToList();
+            removed += alive.Count - next.Count;
+            alive = next;
         }
     }
 
@@ -268,6 +277,45 @@ public static class MapOptimizer
         return n;
     }
 
+    /// <summary>
+    /// Столбцы и ряды, занимаемые 8-связными компонентами декоративных стрелок:
+    /// сжатие внутри них исказило бы пиксель-арт (цифры индикатора и т.п.).
+    /// </summary>
+    private static (HashSet<int> Cols, HashSet<int> Rows) DecorProtection(List<CellRef> cells)
+    {
+        var decor = cells.Where(c => IsDecor(c.Type) && c.Type != 23).ToList();
+        var pos = decor.Select(c => (c.X, c.Y)).ToHashSet();
+        var seen = new HashSet<(int X, int Y)>();
+        var cols = new HashSet<int>();
+        var rows = new HashSet<int>();
+        foreach (var d in decor)
+        {
+            if (!seen.Add((d.X, d.Y))) continue;
+            var stack = new Stack<(int X, int Y)>();
+            stack.Push((d.X, d.Y));
+            int minX = d.X, maxX = d.X, minY = d.Y, maxY = d.Y;
+            while (stack.Count > 0)
+            {
+                var (cx, cy) = stack.Pop();
+                if (cx < minX) minX = cx;
+                if (cx > maxX) maxX = cx;
+                if (cy < minY) minY = cy;
+                if (cy > maxY) maxY = cy;
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    for (int dy = -1; dy <= 1; dy++)
+                    {
+                        var key = (cx + dx, cy + dy);
+                        if (pos.Contains(key) && seen.Add(key)) stack.Push(key);
+                    }
+                }
+            }
+            for (int x = minX; x <= maxX; x++) cols.Add(x);
+            for (int y = minY; y <= maxY; y++) rows.Add(y);
+        }
+        return (cols, rows);
+    }
+
     /// <summary>Сжатие пустых столбцов/рядов с гарантией сохранения всех связей.</summary>
     private static (List<CellRef> Cells, int DeletedCols, int DeletedRows) Compact(
         List<CellRef> cells, List<string> warnings)
@@ -279,10 +327,12 @@ public static class MapOptimizer
         int minX = xs.Min(), maxX = xs.Max();
         int minY = ys.Min(), maxY = ys.Max();
 
+        // Защита пиксель-арта: bbox каждой 8-связной компоненты декора.
+        var (pCols, pRows) = DecorProtection(cells);
         var sx = new HashSet<int>();
         var sy = new HashSet<int>();
-        for (int x = minX; x <= maxX; x++) if (!xs.Contains(x)) sx.Add(x);
-        for (int y = minY; y <= maxY; y++) if (!ys.Contains(y)) sy.Add(y);
+        for (int x = minX; x <= maxX; x++) if (!xs.Contains(x) && !pCols.Contains(x)) sx.Add(x);
+        for (int y = minY; y <= maxY; y++) if (!ys.Contains(y) && !pRows.Contains(y)) sy.Add(y);
 
         var byKey = BuildIndex(cells);
         var consOcc = new List<(CellRef A, CellRef B, int Ox, int Oy)>();

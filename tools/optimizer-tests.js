@@ -249,4 +249,106 @@ function runOpt(cells, opts) {
   passed++; console.log('ok T10: повороты/отражения учтены, удалений: ' + res.stats.removedDead);
 }
 
+// ---------------------------------------------------------------------------
+// T11: РЕГРЕССИЯ 7-сегментного индикатора (реальная схема пользователя).
+// Тип 25 — декоративная стрелка «Does nothing», из неё нарисованы цифры.
+// v1.4.0 удалял её как «мёртвую» и ломал deep-режимом сегменты.
+{
+  const fs = require('fs');
+  const path = require('path');
+  const env = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', '7seg-indicator.map'), 'utf8'));
+  const buf = Buffer.from(env.data, 'base64');
+  let off = 0;
+  const u8 = () => buf[off++];
+  const u16 = () => { const l = u8(), h = u8(); return (h << 8) | l; };
+  const s16 = () => { const v = u16(); return (v & 0x8000) ? -(v & 0x7fff) : v; };
+  u16();
+  const chunkCount = u16();
+  const cells = [];
+  for (let c = 0; c < chunkCount; c++) {
+    const cx = s16(), cy = s16();
+    const typeCount = u8() + 1;
+    for (let t = 0; t < typeCount; t++) {
+      const type = u8();
+      const n = u8() + 1;
+      for (let a = 0; a < n; a++) {
+        const pos = u8(), rot = u8();
+        cells.push(A(cx * 16 + (pos & 15), cy * 16 + (pos >> 4), type, rot & 3, !!(rot & 4)));
+      }
+    }
+  }
+  const decorBefore = cells.filter(c => c.type === 25);
+  assert.ok(decorBefore.length >= 200, 'T11: в фикстуре есть пиксель-арт из декора');
+
+  const safe = runOpt(cells, { deep: false });
+  assertBehaviorPreserved(cells, safe.cells, 'T11-safe');
+  const decorSafe = safe.cells.filter(c => c.type === 25);
+  assert.strictEqual(decorSafe.length, decorBefore.length, 'T11-safe: весь декор сохранён');
+
+  const deep = runOpt(cells, { deep: true });
+  assertBehaviorPreserved(cells, deep.cells, 'T11-deep');
+  const decorDeep = deep.cells.filter(c => c.type === 25);
+  assert.strictEqual(decorDeep.length, decorBefore.length, 'T11-deep: весь декор сохранён');
+
+  // Пиксель-арт не искажается: относительные позиции декора внутри каждой
+  // цифры (8-связной компоненты) совпадают с оригиналом.
+  const compId = new Map();
+  const px = new Map(decorBefore.map(c => [c.x + ',' + c.y, c]));
+  let comp = 0;
+  for (const c of decorBefore) {
+    if (compId.has(c)) continue;
+    comp++;
+    const stack = [c];
+    compId.set(c, comp);
+    while (stack.length) {
+      const cur = stack.pop();
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+        const n = px.get((cur.x + dx) + ',' + (cur.y + dy));
+        if (n && !compId.has(n)) { compId.set(n, comp); stack.push(n); }
+      }
+    }
+  }
+  // после оптимизации координаты сдвинуты — сверяем форму каждой компоненты
+  // (набор смещений пикселей относительно минимума компоненты)
+  const shapeOf = (list, idOf) => {
+    const groups = new Map();
+    for (const c of list) {
+      const g = idOf(c);
+      if (!g) continue;
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(c);
+    }
+    const shapes = [];
+    for (const [, pix] of groups) {
+      const mnX = Math.min(...pix.map(p => p.x)), mnY = Math.min(...pix.map(p => p.y));
+      shapes.push(pix.map(p => (p.x - mnX) + ':' + (p.y - mnY)).sort().join('|'));
+    }
+    return shapes.sort().join(';;');
+  };
+  // сопоставляем декор до/после: компоненты по форме
+  const shapeBefore = shapeOf(decorBefore, c => compId.get(c));
+  const safeDecor = safe.cells.filter(c => c.type === 25);
+  const pxAfter = new Map(safeDecor.map(c => [c.x + ',' + c.y, c]));
+  const compIdAfter = new Map();
+  let compA = 0;
+  for (const c of safeDecor) {
+    if (compIdAfter.has(c)) continue;
+    compA++;
+    const stack = [c];
+    compIdAfter.set(c, compA);
+    while (stack.length) {
+      const cur = stack.pop();
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+        const n = pxAfter.get((cur.x + dx) + ',' + (cur.y + dy));
+        if (n && !compIdAfter.has(n)) { compIdAfter.set(n, compA); stack.push(n); }
+      }
+    }
+  }
+  const shapeAfter = shapeOf(safeDecor, c => compIdAfter.get(c));
+  assert.strictEqual(shapeAfter, shapeBefore, 'T11: форма цифр (компонент декора) не искажена');
+
+  passed++; console.log('ok T11: индикатор цел — декор ' + decorBefore.length + ' шт сохранён, ' +
+    'форма цифр идентична, клеток ' + cells.length + ' -> ' + safe.cells.length + ' (safe), ' + deep.cells.length + ' (deep)');
+}
+
 console.log('\nВСЕ ТЕСТЫ ПРОЙДЕНЫ: ' + passed);

@@ -2011,6 +2011,14 @@ public static class MapBridgeScript
   // AND (16) и защёлка (18) требуют два одновременных входных импульса.
   const LA_MIN_INPUTS = { 16: 2, 18: 2 };
 
+  // Защищённые типы: 23 — цель уровня, 25 — декоративная стрелка («Does
+  // nothing» в бандле, голубая — из неё рисуют пиксель-арт). Любой НЕИЗВЕСТНЫЙ
+  // тип тоже считаем декором: лучше сохранить лишнее, чем удалить схему.
+  const LA_KNOWN_TYPES = new Set([...Object.keys(LA_OFF).map(Number), 25]);
+  function laIsDecor(type) {
+    return type === 25 || type === 23 || !LA_KNOWN_TYPES.has(type);
+  }
+
   // Цель смещения в глобальных координатах (реплика h() из бандла игры).
   function laRelTarget(cell, dx, dy) {
     const c = cell.flipped ? -dy : dy;
@@ -2091,21 +2099,21 @@ public static class MapBridgeScript
     return { byKey, inEdges };
   }
 
-  // Безопасная чистка: удалить клетки, которые никогда не сработают.
+  // Безопасная чистка: удалить клетки, которые никогда не сработают (декор не трогаем).
   function laSafePrune(cells) {
     let alive = cells.slice();
     const removed = [];
     while (true) {
       const { byKey, inEdges } = laBuildGraph(alive);
       const live = laComputeFiring(alive, byKey, inEdges);
-      if (live.size === alive.length) return { kept: alive, removed };
-      const next = [];
-      for (const c of alive) (live.has(c) ? next : removed).push(c);
+      const next = alive.filter(c => live.has(c) || laIsDecor(c.type));
+      if (next.length === alive.length) return { kept: alive, removed };
+      for (const c of alive) if (!next.includes(c)) removed.push(c);
       alive = next;
     }
   }
 
-  // Глубокая чистка: срезать клетки, чей сигнал ни к кому не приходит.
+  // Глубокая чистка: срезать клетки, чей сигнал ни к кому не приходит (декор не трогаем).
   function laDeepTrim(cells) {
     let alive = cells.slice();
     const removed = [];
@@ -2115,7 +2123,7 @@ public static class MapBridgeScript
       const byKey = laBuildIndex(alive);
       const next = [];
       for (const c of alive) {
-        let hasEffect = c.type === 23; // цель уровня не срезаем
+        let hasEffect = laIsDecor(c.type); // цель уровня и декор не срезаем
         if (!hasEffect) {
           for (const [dx, dy] of laOutOffsets(c)) {
             const [tx, ty] = laRelTarget(c, dx, dy);
@@ -2130,6 +2138,43 @@ public static class MapBridgeScript
     return { kept: alive, removed };
   }
 
+  // Защита пиксель-арта из декоративных стрелок: для каждой 8-связной
+  // компоненты декора фиксируем её столбцы и ряды (bbox), чтобы сжатие
+  // не искажало рисунок (цифры индикатора и т.п.).
+  function laDecorProtection(cells) {
+    const decor = cells.filter(c => laIsDecor(c.type) && c.type !== 23);
+    const pos = new Set(decor.map(c => laKey(c.x, c.y)));
+    const byKey = laBuildIndex(decor);
+    const seen = new Set();
+    const pCols = new Set(), pRows = new Set();
+    for (const d of decor) {
+      const startKey = laKey(d.x, d.y);
+      if (seen.has(startKey)) continue;
+      seen.add(startKey);
+      const stack = [d];
+      let minX = d.x, maxX = d.x, minY = d.y, maxY = d.y;
+      while (stack.length > 0) {
+        const c = stack.pop();
+        if (c.x < minX) minX = c.x;
+        if (c.x > maxX) maxX = c.x;
+        if (c.y < minY) minY = c.y;
+        if (c.y > maxY) maxY = c.y;
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const nk = laKey(c.x + dx, c.y + dy);
+            if (pos.has(nk) && !seen.has(nk)) {
+              seen.add(nk);
+              stack.push(byKey.get(nk));
+            }
+          }
+        }
+      }
+      for (let x = minX; x <= maxX; x++) pCols.add(x);
+      for (let y = minY; y <= maxY; y++) pRows.add(y);
+    }
+    return { pCols, pRows };
+  }
+
   // Сжатие пустот с сохранением ВСЕХ связей: удаляем пустые столбцы/ряды,
   // затем точно проверяем, что (а) каждая связь сохранила смещение и
   // (б) пустые цели смещений остались пустыми. Нарушения чиним возвратом
@@ -2142,9 +2187,10 @@ public static class MapBridgeScript
     const minX = Math.min(...xs), maxX = Math.max(...xs);
     const minY = Math.min(...ys), maxY = Math.max(...ys);
 
+    const { pCols, pRows } = laDecorProtection(cells);
     const Sx = new Set(), Sy = new Set();
-    for (let x = minX; x <= maxX; x++) if (!xs.has(x)) Sx.add(x);
-    for (let y = minY; y <= maxY; y++) if (!ys.has(y)) Sy.add(y);
+    for (let x = minX; x <= maxX; x++) if (!xs.has(x) && !pCols.has(x)) Sx.add(x);
+    for (let y = minY; y <= maxY; y++) if (!ys.has(y) && !pRows.has(y)) Sy.add(y);
 
     const byKey = laBuildIndex(cells);
     const consOcc = [], consVoid = [];
@@ -2428,6 +2474,7 @@ public static class MapBridgeScript
               </label>
               <div id="logic-preview-opt-info" style="font-size:12px;color:#8ea0be;line-height:1.5;">Анализирует сигнальные связи схемы: удаляет мёртвые механизмы и сжимает пустоты, не ломая соединения (прыжки, сплиттеры, тайминги).</div>
               <button type="button" id="logic-preview-copy-btn" style="display:none;width:100%;margin-top:8px;background:#1f6feb;color:#fff;border:none;border-radius:6px;padding:7px;cursor:pointer;font-size:12px;font-weight:bold;">📋 Скопировать код</button>
+              <button type="button" id="logic-preview-undo-btn" style="display:none;width:100%;margin-top:6px;background:#282f3d;color:#c9d1d9;border:1px solid #3b4557;border-radius:6px;padding:7px;cursor:pointer;font-size:12px;">↩ Вернуть оригинал</button>
             </div>
 
             <!-- Explorer Guide Card -->
@@ -2458,6 +2505,7 @@ public static class MapBridgeScript
     const saveBtn = document.getElementById('logic-preview-save-btn');
     const centerBtn = document.getElementById('logic-preview-center-btn');
     const copyBtn = document.getElementById('logic-preview-copy-btn');
+    const undoBtn = document.getElementById('logic-preview-undo-btn');
     const folderBtn = document.getElementById('logic-preview-folder-btn');
     const statsDiv = document.getElementById('logic-preview-stats');
     const optInfoDiv = document.getElementById('logic-preview-opt-info');
@@ -2468,6 +2516,7 @@ public static class MapBridgeScript
 
     let currentCells = [];
     let lastOpt = null;
+    let lastOptOriginal = null;
     let cellSize = 32;
     let offsetX = 0;
     let offsetY = 0;
@@ -2631,7 +2680,9 @@ public static class MapBridgeScript
         }
         currentCells = decodeBase64Map(base64);
         lastOpt = null;
+        lastOptOriginal = null;
         copyBtn.style.display = 'none';
+        undoBtn.style.display = 'none';
 
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const c of currentCells) {
@@ -2690,9 +2741,10 @@ public static class MapBridgeScript
         return;
       }
       const deepChk = document.getElementById('logic-preview-deep-chk');
+      lastOptOriginal = { input: input.value, cells: currentCells.map(c => ({ ...c })) };
       lastOpt = optimizeCells(currentCells, { deep: !!(deepChk && deepChk.checked) });
       currentCells = lastOpt.cells;
-      input.value = lastOpt.base64;
+      input.value = lastOpt.base64 || input.value;
       const st = lastOpt.stats;
       let html = '';
       if (currentCells.length === 0) {
@@ -2715,6 +2767,19 @@ public static class MapBridgeScript
       }
       optInfoDiv.innerHTML = html;
       copyBtn.style.display = lastOpt.base64 ? 'block' : 'none';
+      undoBtn.style.display = 'block';
+      resetView();
+    });
+
+    undoBtn.addEventListener('click', () => {
+      if (!lastOptOriginal) return;
+      currentCells = lastOptOriginal.cells;
+      input.value = lastOptOriginal.input;
+      lastOpt = null;
+      lastOptOriginal = null;
+      undoBtn.style.display = 'none';
+      copyBtn.style.display = 'none';
+      optInfoDiv.innerHTML = 'Оптимизация отменена, схема восстановлена.';
       resetView();
     });
 
