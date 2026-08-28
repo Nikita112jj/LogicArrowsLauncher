@@ -1887,16 +1887,44 @@ public static class MapBridgeScript
   const PREVIEW_CONTAINER_ID = 'logic-preview-studio-container';
 
   function decodeBase64Map(base64) {
-    const raw = globalThis.atob(base64.trim());
+    if (!base64 || typeof base64 !== 'string') throw new Error('Пустая строка');
+    let clean = base64.trim().replace(/^["']|["']$/g, '');
+    if (clean.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(clean);
+        if (parsed.data) clean = String(parsed.data).trim();
+      } catch { }
+    }
+    clean = clean.replace(/-/g, '+').replace(/_/g, '/').replace(/\s+/g, '');
+    while (clean.length % 4 !== 0) clean += '=';
+
+    if (!/^[A-Za-z0-9+/=]+$/.test(clean)) {
+      throw new Error('Код содержит недопустимые символы. Скопируйте Base64 код схемы (обычно начинается с AAAB...)');
+    }
+
+    let raw;
+    try {
+      raw = globalThis.atob(clean);
+    } catch {
+      throw new Error('Некорректный Base64. Проверьте правильность скопированного кода.');
+    }
+
+    if (!raw || raw.length < 4) {
+      throw new Error('Код слишком короткий для карты Logic Arrows.');
+    }
+
     const buf = new Uint8Array(raw.length);
     for (let i = 0; i < raw.length; i++) buf[i] = raw.charCodeAt(i);
     let offset = 0;
-    const readU8 = () => buf[offset++];
+    const readU8 = () => {
+      if (offset >= buf.length) throw new Error('Неожиданный конец данных карты.');
+      return buf[offset++];
+    };
     const readU16 = () => { const l = readU8(); const h = readU8(); return (h << 8) | l; };
     const readS16 = () => { const v = readU16(); return (v & 0x8000) ? -(v & 0x7FFF) : v; };
 
     const version = readU16();
-    if (version !== 0) throw new Error('Неподдерживаемая версия карты: ' + version);
+    if (version !== 0) throw new Error('Неподдерживаемая версия схемы: ' + version);
     const chunkCount = readU16();
     const cells = [];
     for (let c = 0; c < chunkCount; c++) {
@@ -2251,48 +2279,71 @@ public static class MapBridgeScript
       const dpr = window.devicePixelRatio || 1;
       ctx.save();
       ctx.scale(dpr, dpr);
+      ctx.imageSmoothingEnabled = false;
       const width = canvas.width / dpr;
       const height = canvas.height / dpr;
 
-      // Authentic Logic Arrows grid colors
-      ctx.fillStyle = '#22262e';
+      // Authentic Logic Arrows game canvas background
+      ctx.fillStyle = '#1e222b';
       ctx.fillRect(0, 0, width, height);
 
-      // 1. Grid lines and chunk borders
+      // 1. Grid lines and chunk borders (sharp 1px lines)
       const minX = Math.floor(-offsetX / cellSize) - 1;
       const maxX = Math.ceil((width - offsetX) / cellSize) + 1;
       const minY = Math.floor(-offsetY / cellSize) - 1;
       const maxY = Math.ceil((height - offsetY) / cellSize) + 1;
 
-      // Draw cell tiles
+      // Cell Grid Lines
+      ctx.beginPath();
       for (let x = minX; x <= maxX; x++) {
-        for (let y = minY; y <= maxY; y++) {
-          const sx = offsetX + x * cellSize;
-          const sy = offsetY + y * cellSize;
-          ctx.fillStyle = '#272c36';
-          ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
-        }
-      }
-
-      ctx.lineWidth = 1;
-      for (let x = minX; x <= maxX; x++) {
-        const sx = offsetX + x * cellSize;
-        ctx.strokeStyle = (x % 16 === 0) ? '#4a5568' : '#181b22';
-        ctx.lineWidth = (x % 16 === 0) ? 1.5 : 1;
-        ctx.beginPath();
+        if (x % 16 === 0 || x === 0) continue;
+        const sx = Math.round(offsetX + x * cellSize) + 0.5;
         ctx.moveTo(sx, 0);
         ctx.lineTo(sx, height);
-        ctx.stroke();
       }
       for (let y = minY; y <= maxY; y++) {
-        const sy = offsetY + y * cellSize;
-        ctx.strokeStyle = (y % 16 === 0) ? '#4a5568' : '#181b22';
-        ctx.lineWidth = (y % 16 === 0) ? 1.5 : 1;
-        ctx.beginPath();
+        if (y % 16 === 0 || y === 0) continue;
+        const sy = Math.round(offsetY + y * cellSize) + 0.5;
         ctx.moveTo(0, sy);
         ctx.lineTo(width, sy);
-        ctx.stroke();
       }
+      ctx.strokeStyle = '#292f3b';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Chunk Borders (every 16 cells)
+      ctx.beginPath();
+      for (let x = minX; x <= maxX; x++) {
+        if (x % 16 !== 0 || x === 0) continue;
+        const sx = Math.round(offsetX + x * cellSize) + 0.5;
+        ctx.moveTo(sx, 0);
+        ctx.lineTo(sx, height);
+      }
+      for (let y = minY; y <= maxY; y++) {
+        if (y % 16 !== 0 || y === 0) continue;
+        const sy = Math.round(offsetY + y * cellSize) + 0.5;
+        ctx.moveTo(0, sy);
+        ctx.lineTo(width, sy);
+      }
+      ctx.strokeStyle = '#434e63';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Origin Axes (x=0, y=0)
+      ctx.beginPath();
+      if (0 >= minX && 0 <= maxX) {
+        const sx = Math.round(offsetX) + 0.5;
+        ctx.moveTo(sx, 0);
+        ctx.lineTo(sx, height);
+      }
+      if (0 >= minY && 0 <= maxY) {
+        const sy = Math.round(offsetY) + 0.5;
+        ctx.moveTo(0, sy);
+        ctx.lineTo(width, sy);
+      }
+      ctx.strokeStyle = '#388bfd';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
 
       // 2. Render Cells with official sprites
       for (const cell of currentCells) {
@@ -2301,13 +2352,13 @@ public static class MapBridgeScript
         if (cx + cellSize < 0 || cx > width || cy + cellSize < 0 || cy > height) continue;
 
         ctx.save();
-        ctx.translate(cx + cellSize / 2, cy + cellSize / 2);
+        ctx.translate(Math.round(cx + cellSize / 2), Math.round(cy + cellSize / 2));
         ctx.rotate((cell.rotation * 90 * Math.PI) / 180);
         if (cell.flipped) ctx.scale(-1, 1);
 
         const img = getArrowSprite(cell.type, draw);
         if (img.complete && img.naturalWidth > 0) {
-          ctx.drawImage(img, -cellSize / 2, -cellSize / 2, cellSize, cellSize);
+          ctx.drawImage(img, -Math.round(cellSize / 2), -Math.round(cellSize / 2), Math.round(cellSize), Math.round(cellSize));
         } else {
           // Fallback vector while sprite loads
           const s = cellSize * 0.85;
@@ -2363,7 +2414,16 @@ public static class MapBridgeScript
         `;
         resetView();
       } catch (err) {
-        statsDiv.innerHTML = `<span style="color:#f85149">Ошибка: ${err.message || err}</span>`;
+        currentCells = [];
+        draw();
+        statsDiv.innerHTML = `
+          <div style="background:#2d1518;border:1px solid #6e1c24;border-radius:6px;padding:8px 10px;color:#ff7b72;font-size:11.5px;line-height:1.45;">
+            <div style="font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:4px;">
+              <span>⚠️ Ошибка кода схемы</span>
+            </div>
+            ${err.message || 'Не удалось распознать код.'}
+          </div>
+        `;
       }
     }
 
