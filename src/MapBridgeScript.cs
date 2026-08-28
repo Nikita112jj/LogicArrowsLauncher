@@ -2078,51 +2078,107 @@ public static class MapBridgeScript
     }
   }
 
+  const arrowSprites = new Map();
+  function getArrowSprite(type, onLoaded) {
+    if (arrowSprites.has(type)) {
+      const existing = arrowSprites.get(type);
+      if (onLoaded && (!existing.complete || existing.naturalWidth === 0)) {
+        existing.addEventListener('load', onLoaded, { once: true });
+      }
+      return existing;
+    }
+    const img = new Image();
+    img.src = `res/sprites/arrow${type}.png`;
+    if (onLoaded) {
+      img.addEventListener('load', onLoaded, { once: true });
+    }
+    arrowSprites.set(type, img);
+    return img;
+  }
+  // Preload official arrow sprites 1..26
+  for (let i = 1; i <= 26; i++) getArrowSprite(i);
+
   function renderInGamePreviewStudio(container) {
     container.innerHTML = `
-      <div id="${PREVIEW_CONTAINER_ID}" style="display:flex;flex-direction:column;width:100%;height:100%;background:#0d1117;color:#f0f6fc;font-family:var(--font,sans-serif);box-sizing:border-box;">
-        <!-- Top Toolbar -->
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:#161b22;border-bottom:1px solid #30363d;flex-wrap:wrap;z-index:2;">
-          <input type="text" id="logic-preview-input" placeholder="Вставьте код карты (AAAB...) или JSON..." style="flex:1;min-width:200px;background:#0d1117;color:#f0f6fc;border:1px solid #30363d;border-radius:6px;padding:6px 10px;font-size:13px;font-family:Consolas,monospace;">
-          <button type="button" id="logic-preview-paste-btn" style="background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;">📋 Вставить</button>
-          <button type="button" id="logic-preview-open-btn" style="background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;">📂 Загрузить .map</button>
+      <div id="${PREVIEW_CONTAINER_ID}" style="display:flex;flex-direction:column;width:100%;height:100%;background:#161a22;color:#f0f6fc;font-family:var(--font,Roboto,-apple-system,sans-serif);box-sizing:border-box;">
+        <!-- Top Toolbar (No AI Slop, clean GitHub/Linear UI with Lucide icons) -->
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:#1f242e;border-bottom:1px solid #2d3544;flex-wrap:wrap;z-index:2;">
+          <div style="display:flex;align-items:center;gap:6px;margin-right:4px;">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="#58a6ff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <span style="font-size:13px;font-weight:600;color:#f0f6fc;white-space:nowrap;">Превью схем</span>
+          </div>
+          <input type="text" id="logic-preview-input" placeholder="Вставьте Base64 код схемы (AAAB...) или JSON..." style="flex:1;min-width:180px;background:#12151b;color:#f0f6fc;border:1px solid #2d3544;border-radius:6px;padding:6px 10px;font-size:12.5px;font-family:Consolas,monospace;outline:none;">
+          
+          <button type="button" id="logic-preview-paste-btn" title="Вставить код из буфера обмена" style="display:flex;align-items:center;gap:5px;background:#282f3d;color:#c9d1d9;border:1px solid #3b4557;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;font-weight:500;">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1Z"></path><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"></path><path d="M12 11v6"></path><path d="m9 14 3 3 3-3"></path></svg>
+            Вставить
+          </button>
+          
+          <button type="button" id="logic-preview-open-btn" title="Открыть локальный .map файл" style="display:flex;align-items:center;gap:5px;background:#282f3d;color:#c9d1d9;border:1px solid #3b4557;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;font-weight:500;">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"></path></svg>
+            .map файл
+          </button>
           <input type="file" id="logic-preview-file-input" accept=".map,.json,.txt" style="display:none;">
-          <button type="button" id="logic-preview-opt-btn" style="background:#238636;color:#fff;border:1px solid #2ea043;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:bold;">⚡ Уменьшить / Оптимизировать</button>
-          <button type="button" id="logic-preview-save-btn" style="background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;">💾 Сохранить .map</button>
-          <button type="button" id="logic-preview-center-btn" style="background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;">🎯 По центру</button>
+          
+          <button type="button" id="logic-preview-opt-btn" title="Сжать схему и убрать пустоты" style="display:flex;align-items:center;gap:5px;background:#238636;color:#fff;border:1px solid #2ea043;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:bold;">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m15 15 6 6m-6-6v4.8m0-4.8h4.8"></path><path d="M9 15 3 21m6-6v4.8m0-4.8H4.2"></path><path d="M15 9l6-6m-6 6V4.2m0 4.8h4.8"></path><path d="M9 9 3 3m6 6V4.2m0 4.8H4.2"></path></svg>
+            Уменьшить схему
+          </button>
+          
+          <button type="button" id="logic-preview-save-btn" title="Сохранить схему в .map" style="display:flex;align-items:center;gap:5px;background:#282f3d;color:#c9d1d9;border:1px solid #3b4557;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Сохранить .map
+          </button>
+          
+          <button type="button" id="logic-preview-center-btn" title="Центрировать камеру" style="display:flex;align-items:center;gap:5px;background:#282f3d;color:#c9d1d9;border:1px solid #3b4557;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="22"></line><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+            По центру
+          </button>
         </div>
 
         <!-- Main Workspace -->
         <div style="display:flex;flex:1;overflow:hidden;position:relative;">
           <!-- Canvas Viewport -->
-          <div id="logic-preview-canvas-wrap" style="flex:1;position:relative;background:#0d1117;overflow:hidden;">
+          <div id="logic-preview-canvas-wrap" style="flex:1;position:relative;background:#1a1e26;overflow:hidden;">
             <canvas id="logic-preview-canvas" style="display:block;width:100%;height:100%;cursor:grab;"></canvas>
-            <div id="logic-preview-tooltip" style="position:absolute;bottom:12px;left:12px;background:rgba(22,27,34,0.92);border:1px solid #30363d;padding:6px 12px;border-radius:6px;font-size:12px;color:#c9d1d9;pointer-events:none;display:none;"></div>
+            <div id="logic-preview-tooltip" style="position:absolute;bottom:12px;left:12px;background:rgba(26,31,41,0.94);border:1px solid #3b4557;padding:5px 10px;border-radius:6px;font-size:12px;color:#c9d1d9;pointer-events:none;display:none;backdrop-filter:blur(4px);"></div>
           </div>
 
           <!-- Sidebar Info Panel -->
-          <div style="width:310px;background:#161b22;border-left:1px solid #30363d;padding:14px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;box-sizing:border-box;">
+          <div style="width:300px;background:#1a1f29;border-left:1px solid #2d3544;padding:12px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;box-sizing:border-box;">
             <!-- Stats Card -->
-            <div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px;">
-              <div style="font-size:14px;font-weight:bold;color:#f0f6fc;margin-bottom:6px;">📊 Свойства схемы</div>
-              <div id="logic-preview-stats" style="font-size:12.5px;color:#8b949e;line-height:1.5;">Вставьте код схемы (AAAB...) для просмотра.</div>
+            <div style="background:#13161d;border:1px solid #2d3544;border-radius:8px;padding:10px 12px;">
+              <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#f0f6fc;margin-bottom:6px;">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="#58a6ff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
+                Параметры схемы
+              </div>
+              <div id="logic-preview-stats" style="font-size:12px;color:#8ea0be;line-height:1.5;">Вставьте Base64 код схемы для просмотра.</div>
             </div>
 
             <!-- Optimization Card -->
-            <div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px;">
-              <div style="font-size:14px;font-weight:bold;color:#3fb950;margin-bottom:6px;">⚡ Оптимизация</div>
-              <div id="logic-preview-opt-info" style="font-size:12.5px;color:#8b949e;line-height:1.5;">Нажмите «⚡ Уменьшить / Оптимизировать», чтобы компактно перестроить схему.</div>
-              <button type="button" id="logic-preview-copy-btn" style="display:none;width:100%;margin-top:10px;background:#1f6feb;color:#fff;border:none;border-radius:6px;padding:8px;cursor:pointer;font-size:12.5px;font-weight:bold;">📋 Скопировать код</button>
+            <div style="background:#13161d;border:1px solid #2d3544;border-radius:8px;padding:10px 12px;">
+              <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#3fb950;margin-bottom:6px;">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="#3fb950" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m15 15 6 6m-6-6v4.8m0-4.8h4.8"></path><path d="M9 15 3 21m6-6v4.8m0-4.8H4.2"></path><path d="M15 9l6-6m-6 6V4.2m0 4.8h4.8"></path><path d="M9 9 3 3m6 6V4.2m0 4.8H4.2"></path></svg>
+                Оптимизация
+              </div>
+              <div id="logic-preview-opt-info" style="font-size:12px;color:#8ea0be;line-height:1.5;">Нажмите «Уменьшить схему», чтобы сжать пустоты и промежутки.</div>
+              <button type="button" id="logic-preview-copy-btn" style="display:none;width:100%;margin-top:8px;background:#1f6feb;color:#fff;border:none;border-radius:6px;padding:7px;cursor:pointer;font-size:12px;font-weight:bold;">📋 Скопировать код</button>
             </div>
 
             <!-- Explorer Guide Card -->
-            <div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px;">
-              <div style="font-size:14px;font-weight:bold;color:#58a6ff;margin-bottom:6px;">📁 Куда поместить карту</div>
-              <div style="font-size:12px;color:#8b949e;line-height:1.5;margin-bottom:10px;">
-                1. Скопируйте Base64-код и в разделе <b>Карты</b> нажмите <b>«Импорт карты»</b>.<br>
-                2. Либо сохраните файл .map и откройте папку проводника:
+            <div style="background:#13161d;border:1px solid #2d3544;border-radius:8px;padding:10px 12px;">
+              <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#58a6ff;margin-bottom:6px;">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="#58a6ff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+                Куда поместить карту
               </div>
-              <button type="button" id="logic-preview-folder-btn" style="width:100%;background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:8px;cursor:pointer;font-size:12.5px;font-weight:500;">📁 Папка с картами в Explorer</button>
+              <div style="font-size:11.5px;color:#8ea0be;line-height:1.45;margin-bottom:8px;">
+                1. Нажмите <b>«Скопировать код»</b> и в разделе <b>«Карты»</b> нажмите <b>«Импорт карты»</b>.<br>
+                2. Либо сохраните <code>.map</code> файл и откройте папку в Проводнике:
+              </div>
+              <button type="button" id="logic-preview-folder-btn" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;background:#282f3d;color:#c9d1d9;border:1px solid #3b4557;border-radius:6px;padding:7px;cursor:pointer;font-size:12px;font-weight:500;">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path><circle cx="12" cy="13" r="2"></circle><path d="m14 15 2 2"></path></svg>
+                Папка карт в Explorer
+              </button>
             </div>
           </div>
         </div>
@@ -2198,19 +2254,31 @@ public static class MapBridgeScript
       const width = canvas.width / dpr;
       const height = canvas.height / dpr;
 
-      ctx.fillStyle = '#0d1117';
+      // Authentic Logic Arrows grid colors
+      ctx.fillStyle = '#22262e';
       ctx.fillRect(0, 0, width, height);
 
-      // 1. Grid
+      // 1. Grid lines and chunk borders
       const minX = Math.floor(-offsetX / cellSize) - 1;
       const maxX = Math.ceil((width - offsetX) / cellSize) + 1;
       const minY = Math.floor(-offsetY / cellSize) - 1;
       const maxY = Math.ceil((height - offsetY) / cellSize) + 1;
 
+      // Draw cell tiles
+      for (let x = minX; x <= maxX; x++) {
+        for (let y = minY; y <= maxY; y++) {
+          const sx = offsetX + x * cellSize;
+          const sy = offsetY + y * cellSize;
+          ctx.fillStyle = '#272c36';
+          ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
+        }
+      }
+
       ctx.lineWidth = 1;
       for (let x = minX; x <= maxX; x++) {
         const sx = offsetX + x * cellSize;
-        ctx.strokeStyle = (x % 16 === 0) ? '#30363d' : '#161b22';
+        ctx.strokeStyle = (x % 16 === 0) ? '#4a5568' : '#181b22';
+        ctx.lineWidth = (x % 16 === 0) ? 1.5 : 1;
         ctx.beginPath();
         ctx.moveTo(sx, 0);
         ctx.lineTo(sx, height);
@@ -2218,14 +2286,15 @@ public static class MapBridgeScript
       }
       for (let y = minY; y <= maxY; y++) {
         const sy = offsetY + y * cellSize;
-        ctx.strokeStyle = (y % 16 === 0) ? '#30363d' : '#161b22';
+        ctx.strokeStyle = (y % 16 === 0) ? '#4a5568' : '#181b22';
+        ctx.lineWidth = (y % 16 === 0) ? 1.5 : 1;
         ctx.beginPath();
         ctx.moveTo(0, sy);
         ctx.lineTo(width, sy);
         ctx.stroke();
       }
 
-      // 2. Cells
+      // 2. Render Cells with official sprites
       for (const cell of currentCells) {
         const cx = offsetX + cell.x * cellSize;
         const cy = offsetY + cell.y * cellSize;
@@ -2236,70 +2305,14 @@ public static class MapBridgeScript
         ctx.rotate((cell.rotation * 90 * Math.PI) / 180);
         if (cell.flipped) ctx.scale(-1, 1);
 
-        const s = cellSize * 0.85;
-        const color = getArrowColor(cell.type);
-        ctx.fillStyle = color;
-        ctx.strokeStyle = color;
-
-        // Draw based on type
-        if (cell.type === 1 || cell.type === 4 || cell.type === 5) {
-          // Arrow
-          ctx.beginPath();
-          ctx.moveTo(0, -s * 0.5);
-          ctx.lineTo(s * 0.45, s * 0.45);
-          ctx.lineTo(0, s * 0.2);
-          ctx.lineTo(-s * 0.45, s * 0.45);
-          ctx.closePath();
-          ctx.fill();
-          if (cell.type === 5) {
-            ctx.fillStyle = '#ffeb3b';
-            ctx.beginPath();
-            ctx.arc(0, s * 0.2, s * 0.15, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        } else if (cell.type === 10) {
-          // Double speed blue arrow
-          ctx.beginPath();
-          ctx.moveTo(0, -s * 0.5);
-          ctx.lineTo(s * 0.4, -s * 0.1);
-          ctx.lineTo(0, -s * 0.25);
-          ctx.lineTo(-s * 0.4, -s * 0.1);
-          ctx.closePath();
-          ctx.fill();
-          ctx.beginPath();
-          ctx.moveTo(0, -s * 0.1);
-          ctx.lineTo(s * 0.4, s * 0.35);
-          ctx.lineTo(0, s * 0.15);
-          ctx.lineTo(-s * 0.4, s * 0.35);
-          ctx.closePath();
-          ctx.fill();
-        } else if (cell.type >= 15 && cell.type <= 19) {
-          // Logic Gate Badge
-          ctx.fillStyle = 'rgba(227, 179, 65, 0.2)';
-          ctx.fillRect(-s * 0.45, -s * 0.45, s * 0.9, s * 0.9);
-          ctx.strokeRect(-s * 0.45, -s * 0.45, s * 0.9, s * 0.9);
-          if (s >= 20) {
-            ctx.fillStyle = '#f0f6fc';
-            ctx.font = 'bold ' + Math.max(7, Math.floor(s * 0.28)) + 'px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            const name = cell.type === 15 ? 'NOT' : cell.type === 16 ? 'AND' : cell.type === 17 ? 'XOR' : cell.type === 18 ? 'LAT' : 'T';
-            ctx.fillText(name, 0, 0);
-          }
-        } else if (cell.type === 25) {
-          // Display
-          ctx.fillStyle = 'rgba(0, 210, 255, 0.2)';
-          ctx.fillRect(-s * 0.45, -s * 0.45, s * 0.9, s * 0.9);
-          ctx.strokeRect(-s * 0.45, -s * 0.45, s * 0.9, s * 0.9);
-          if (s >= 18) {
-            ctx.fillStyle = '#00d2ff';
-            ctx.font = 'bold ' + Math.max(8, Math.floor(s * 0.45)) + 'px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('8', 0, 0);
-          }
+        const img = getArrowSprite(cell.type, draw);
+        if (img.complete && img.naturalWidth > 0) {
+          ctx.drawImage(img, -cellSize / 2, -cellSize / 2, cellSize, cellSize);
         } else {
-          // Generic
+          // Fallback vector while sprite loads
+          const s = cellSize * 0.85;
+          const color = getArrowColor(cell.type);
+          ctx.fillStyle = color;
           ctx.beginPath();
           ctx.moveTo(0, -s * 0.45);
           ctx.lineTo(s * 0.4, s * 0.4);
@@ -2318,7 +2331,7 @@ public static class MapBridgeScript
       const trimmed = (text || '').trim();
       if (!trimmed) {
         currentCells = [];
-        statsDiv.textContent = 'Вставьте код схемы (AAAB...) для просмотра.';
+        statsDiv.textContent = 'Вставьте Base64 код схемы для просмотра.';
         draw();
         return;
       }
@@ -2345,8 +2358,8 @@ public static class MapBridgeScript
         statsDiv.innerHTML = `
           • Размер: <b>${w} × ${h}</b> клеток<br>
           • Блоков: <b>${currentCells.length}</b><br>
-          • Чанков: <b>${chunks}</b><br>
-          • Координаты: [${minX}..${maxX}], [${minY}..${maxY}]
+          • Занято чанков: <b>${chunks}</b><br>
+          • Границы: X:[${minX}..${maxX}], Y:[${minY}..${maxY}]
         `;
         resetView();
       } catch (err) {
@@ -2383,10 +2396,9 @@ public static class MapBridgeScript
       currentCells = lastOpt.cells;
       input.value = lastOpt.base64;
       optInfoDiv.innerHTML = `
-        • Исходный: <b>${lastOpt.stats.origW}×${lastOpt.stats.origH}</b><br>
-        • Оптимизированный: <b>${lastOpt.stats.optW}×${lastOpt.stats.optH}</b><br>
+        • До: <b>${lastOpt.stats.origW}×${lastOpt.stats.origH}</b> ➔ После: <b>${lastOpt.stats.optW}×${lastOpt.stats.optH}</b><br>
         • Экономия площади: <b style="color:#3fb950">-${lastOpt.stats.reduction}%</b><br>
-        • Блоков: <b>${lastOpt.stats.optCells}</b> (в начале 0,0)
+        • Блоков: <b>${lastOpt.stats.optCells}</b> (смещено в 0,0)
       `;
       copyBtn.style.display = 'block';
       resetView();
