@@ -2,7 +2,6 @@ using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 using System.Diagnostics;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -21,13 +20,11 @@ public sealed class LauncherForm : Form
     private readonly Panel header = new();
     private readonly Label headerTitle = new();
     private readonly Label headerSubtitle = new();
-    private readonly RoundedButton tabGameBtn = new();
-    private readonly RoundedButton tabPreviewBtn = new();
     private readonly RoundedButton updateButton = new();
     private readonly RoundedButton githubButton = new();
     private readonly RoundedButton changelogButton = new();
 
-    // Tab 1: Game WebView & Main Screen
+    // Game WebView & Main Screen
     private readonly WebView2 webView = new();
     private readonly Panel loadingOverlay = new();
     private readonly RoundedPanel centerCard = new();
@@ -47,34 +44,6 @@ public sealed class LauncherForm : Form
     private readonly Label versionLabel = new();
     private readonly LinkLabel checkUpdatesLink = new();
 
-    // Tab 2: Preview & Optimization Studio
-    private readonly Panel previewPanel = new();
-    private readonly Panel previewTopBar = new();
-    private readonly TextBox mapInputBox = new();
-    private readonly RoundedButton pasteBtn = new();
-    private readonly RoundedButton openFileBtn = new();
-    private readonly RoundedButton optimizeBtn = new();
-    private readonly RoundedButton exportMapBtn = new();
-    private readonly RoundedButton openFolderBtn = new();
-    private readonly RoundedButton centerViewBtn = new();
-    private readonly MapPreviewControl previewControl = new();
-
-    // Preview Sidebar
-    private readonly Panel previewSidebar = new();
-    private readonly RoundedPanel statsCard = new();
-    private readonly Label statsTitle = new();
-    private readonly Label statsInfo = new();
-
-    private readonly RoundedPanel optCard = new();
-    private readonly Label optTitle = new();
-    private readonly Label optInfo = new();
-    private readonly RoundedButton copyOptBtn = new();
-
-    private readonly RoundedPanel guideCard = new();
-    private readonly Label guideTitle = new();
-    private readonly Label guideText = new();
-    private readonly RoundedButton guideFolderBtn = new();
-
     // State & Services
     private AssetSynchronizer? synchronizer;
     private LocalResourceInterceptor? interceptor;
@@ -91,20 +60,16 @@ public sealed class LauncherForm : Form
     private bool lobbyImportInProgress;
     private int focusRequestId;
     private bool appIsActive = true;
-    private int currentTab = 0; // 0: Game, 1: Preview
 
     private UpdateInfo? availableUpdate;
     private bool isUpdating;
-
-    private MapBlueprint? currentBlueprint;
-    private OptimizationResult? lastOptResult;
 
     public LauncherForm()
     {
         Text = "Logic Arrows Launcher";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(960, 680);
-        ClientSize = new Size(1180, 760);
+        MinimumSize = new Size(860, 600);
+        ClientSize = new Size(1100, 720);
         BackColor = Color.FromArgb(13, 17, 23);
         ShowIcon = true;
         try
@@ -125,15 +90,12 @@ public sealed class LauncherForm : Form
         BuildHeader();
         BuildCenterCard();
         BuildLoadingOverlay();
-        BuildPreviewStudio();
 
         webView.Dock = DockStyle.Fill;
         webView.Visible = false;
 
-        // Docking order
         Controls.Add(webView);
         Controls.Add(loadingOverlay);
-        Controls.Add(previewPanel);
         Controls.Add(header);
 
         loadingOverlay.Resize += (_, _) => CenterLoadingCard();
@@ -148,7 +110,7 @@ public sealed class LauncherForm : Form
         header.Dock = DockStyle.Top;
         header.Height = 60;
         header.BackColor = Color.FromArgb(22, 27, 34);
-        header.Padding = new Padding(16, 10, 16, 10);
+        header.Padding = new Padding(20, 10, 20, 10);
         header.Paint += (_, e) =>
         {
             using var pen = new Pen(Color.FromArgb(48, 54, 61), 1);
@@ -158,15 +120,13 @@ public sealed class LauncherForm : Form
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 7,
+            ColumnCount = 5,
             RowCount = 1,
             BackColor = Color.Transparent,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Title & Subtitle
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Tab: Game
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Tab: Preview & Optimizer
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F)); // Spacer
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Update
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // GitHub
@@ -177,7 +137,7 @@ public sealed class LauncherForm : Form
         {
             AutoSize = true,
             BackColor = Color.Transparent,
-            Margin = new Padding(0, 2, 20, 0),
+            Margin = new Padding(0, 2, 0, 0),
         };
 
         headerTitle.AutoSize = true;
@@ -195,15 +155,7 @@ public sealed class LauncherForm : Form
         titleBox.Controls.Add(headerTitle);
         titleBox.Controls.Add(headerSubtitle);
 
-        // Tab Game Button
-        ConfigureTabButton(tabGameBtn, "🎮  Игра", true);
-        tabGameBtn.Click += (_, _) => SwitchTab(0);
-
-        // Tab Preview & Optimizer Button (with Lucide Eye glyph)
-        ConfigureTabButton(tabPreviewBtn, "👁  Превью и Схемы", false);
-        tabPreviewBtn.Click += (_, _) => SwitchTab(1);
-
-        ConfigureHeaderButton(updateButton, "⚡ Обновить", new Size(125, 34), Color.FromArgb(31, 111, 235));
+        ConfigureHeaderButton(updateButton, "⚡ Обновить", new Size(135, 34), Color.FromArgb(31, 111, 235));
         updateButton.BorderColor = Color.FromArgb(56, 139, 253);
         updateButton.ForeColor = Color.White;
         updateButton.Visible = false;
@@ -217,52 +169,18 @@ public sealed class LauncherForm : Form
         changelogButton.Click += (_, _) => OpenExternalUrl(ReleaseUrl);
 
         layout.Controls.Add(titleBox, 0, 0);
-        layout.Controls.Add(tabGameBtn, 1, 0);
-        layout.Controls.Add(tabPreviewBtn, 2, 0);
-        layout.Controls.Add(new Panel { BackColor = Color.Transparent }, 3, 0);
-        layout.Controls.Add(updateButton, 4, 0);
-        layout.Controls.Add(githubButton, 5, 0);
-        layout.Controls.Add(changelogButton, 6, 0);
+        layout.Controls.Add(new Panel { BackColor = Color.Transparent }, 1, 0);
+        layout.Controls.Add(updateButton, 2, 0);
+        layout.Controls.Add(githubButton, 3, 0);
+        layout.Controls.Add(changelogButton, 4, 0);
         header.Controls.Add(layout);
-    }
-
-    private static void ConfigureTabButton(RoundedButton button, string text, bool active)
-    {
-        button.Text = text;
-        button.Size = new Size(160, 36);
-        button.Margin = new Padding(4, 2, 4, 2);
-        button.FlatStyle = FlatStyle.Flat;
-        button.FlatAppearance.BorderSize = 0;
-        button.Font = new Font("Segoe UI", 9.5F, active ? FontStyle.Bold : FontStyle.Regular);
-        button.CornerRadius = 6;
-        button.BorderThickness = 1;
-        button.Cursor = Cursors.Hand;
-        UpdateTabButtonStyle(button, active);
-    }
-
-    private static void UpdateTabButtonStyle(RoundedButton button, bool active)
-    {
-        if (active)
-        {
-            button.BackColor = Color.FromArgb(31, 111, 235);
-            button.BorderColor = Color.FromArgb(56, 139, 253);
-            button.ForeColor = Color.White;
-            button.HoverBackColor = Color.FromArgb(56, 139, 253);
-        }
-        else
-        {
-            button.BackColor = Color.FromArgb(22, 27, 34);
-            button.BorderColor = Color.FromArgb(48, 54, 61);
-            button.ForeColor = Color.FromArgb(201, 209, 217);
-            button.HoverBackColor = Color.FromArgb(33, 38, 45);
-        }
     }
 
     private static void ConfigureHeaderButton(RoundedButton button, string text, Size size, Color color)
     {
         button.Text = text;
         button.Size = size;
-        button.Margin = new Padding(4, 2, 0, 2);
+        button.Margin = new Padding(6, 2, 0, 2);
         button.FlatStyle = FlatStyle.Flat;
         button.FlatAppearance.BorderSize = 0;
         button.ForeColor = Color.FromArgb(201, 209, 217);
@@ -273,31 +191,6 @@ public sealed class LauncherForm : Form
         button.BorderThickness = 1;
         button.HoverBackColor = Color.FromArgb(48, 54, 61);
         button.Cursor = Cursors.Hand;
-    }
-
-    private void SwitchTab(int tabIndex)
-    {
-        if (isGameFullscreen) return;
-        currentTab = tabIndex;
-        UpdateTabButtonStyle(tabGameBtn, currentTab == 0);
-        UpdateTabButtonStyle(tabPreviewBtn, currentTab == 1);
-
-        if (currentTab == 0)
-        {
-            previewPanel.Visible = false;
-            loadingOverlay.Visible = true;
-            CenterLoadingCard();
-        }
-        else
-        {
-            loadingOverlay.Visible = false;
-            previewPanel.Visible = true;
-            previewControl.ResetView();
-            if (currentBlueprint is null && !string.IsNullOrWhiteSpace(mapInputBox.Text))
-            {
-                LoadMapFromInput();
-            }
-        }
     }
 
     private void BuildCenterCard()
@@ -459,359 +352,6 @@ public sealed class LauncherForm : Form
         CenterLoadingCard();
     }
 
-    private void BuildPreviewStudio()
-    {
-        previewPanel.Dock = DockStyle.Fill;
-        previewPanel.BackColor = Color.FromArgb(13, 17, 23);
-        previewPanel.Visible = false;
-
-        // 1. Top Bar
-        previewTopBar.Dock = DockStyle.Top;
-        previewTopBar.Height = 52;
-        previewTopBar.BackColor = Color.FromArgb(22, 27, 34);
-        previewTopBar.Padding = new Padding(12, 8, 12, 8);
-        previewTopBar.Paint += (_, e) =>
-        {
-            using var pen = new Pen(Color.FromArgb(48, 54, 61), 1);
-            e.Graphics.DrawLine(pen, 0, previewTopBar.Height - 1, previewTopBar.Width, previewTopBar.Height - 1);
-        };
-
-        mapInputBox.Dock = DockStyle.Fill;
-        mapInputBox.BackColor = Color.FromArgb(13, 17, 23);
-        mapInputBox.ForeColor = Color.FromArgb(240, 246, 252);
-        mapInputBox.BorderStyle = BorderStyle.FixedSingle;
-        mapInputBox.Font = new Font("Consolas", 10F);
-        mapInputBox.PlaceholderText = "Вставьте код карты Base64 (AAAB...) или JSON...";
-        mapInputBox.TextChanged += (_, _) => LoadMapFromInput();
-
-        ConfigureHeaderButton(pasteBtn, "📋 Вставить", new Size(100, 34), Color.FromArgb(33, 38, 45));
-        pasteBtn.Click += (_, _) =>
-        {
-            try
-            {
-                if (Clipboard.ContainsText())
-                {
-                    mapInputBox.Text = Clipboard.GetText().Trim();
-                }
-            }
-            catch { }
-        };
-
-        ConfigureHeaderButton(openFileBtn, "📂 Открыть .map", new Size(125, 34), Color.FromArgb(33, 38, 45));
-        openFileBtn.Click += OpenMapFileDialog;
-
-        ConfigureHeaderButton(optimizeBtn, "⚡ Оптимизировать", new Size(150, 34), Color.FromArgb(35, 134, 54));
-        optimizeBtn.BorderColor = Color.FromArgb(46, 160, 67);
-        optimizeBtn.ForeColor = Color.White;
-        optimizeBtn.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-        optimizeBtn.Click += OptimizeCurrentBlueprint;
-
-        ConfigureHeaderButton(exportMapBtn, "💾 Сохранить .map", new Size(140, 34), Color.FromArgb(33, 38, 45));
-        exportMapBtn.Click += SaveMapFileDialog;
-
-        ConfigureHeaderButton(centerViewBtn, "🎯 По центру", new Size(105, 34), Color.FromArgb(33, 38, 45));
-        centerViewBtn.Click += (_, _) => previewControl.ResetView();
-
-        var topBarLayout = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 6,
-            RowCount = 1,
-            BackColor = Color.Transparent,
-            Margin = Padding.Empty,
-            Padding = Padding.Empty,
-        };
-        topBarLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F)); // TextBox
-        topBarLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Paste
-        topBarLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Open
-        topBarLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Optimize
-        topBarLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Export
-        topBarLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // Center
-        topBarLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-
-        topBarLayout.Controls.Add(mapInputBox, 0, 0);
-        topBarLayout.Controls.Add(pasteBtn, 1, 0);
-        topBarLayout.Controls.Add(openFileBtn, 2, 0);
-        topBarLayout.Controls.Add(optimizeBtn, 3, 0);
-        topBarLayout.Controls.Add(exportMapBtn, 4, 0);
-        topBarLayout.Controls.Add(centerViewBtn, 5, 0);
-        previewTopBar.Controls.Add(topBarLayout);
-
-        // 2. Sidebar (Width: 330)
-        previewSidebar.Dock = DockStyle.Right;
-        previewSidebar.Width = 330;
-        previewSidebar.BackColor = Color.FromArgb(18, 22, 29);
-        previewSidebar.Padding = new Padding(12);
-        previewSidebar.AutoScroll = true;
-        previewSidebar.Paint += (_, e) =>
-        {
-            using var pen = new Pen(Color.FromArgb(48, 54, 61), 1);
-            e.Graphics.DrawLine(pen, 0, 0, 0, previewSidebar.Height);
-        };
-
-        BuildPreviewSidebarCards();
-
-        // 3. Preview Control (Canvas)
-        previewControl.Dock = DockStyle.Fill;
-
-        previewPanel.Controls.Add(previewControl);
-        previewPanel.Controls.Add(previewSidebar);
-        previewPanel.Controls.Add(previewTopBar);
-    }
-
-    private void BuildPreviewSidebarCards()
-    {
-        // 1. Stats Card
-        statsCard.Size = new Size(300, 130);
-        statsCard.Location = new Point(12, 12);
-        statsCard.BackColor = Color.FromArgb(22, 27, 34);
-        statsCard.BorderColor = Color.FromArgb(48, 54, 61);
-        statsCard.BorderThickness = 1;
-        statsCard.CornerRadius = 10;
-        statsCard.Padding = new Padding(12);
-
-        statsTitle.AutoSize = false;
-        statsTitle.Size = new Size(276, 22);
-        statsTitle.Location = new Point(12, 10);
-        statsTitle.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-        statsTitle.ForeColor = Color.FromArgb(240, 246, 252);
-        statsTitle.Text = "📊  Информация о схеме";
-
-        statsInfo.AutoSize = false;
-        statsInfo.Size = new Size(276, 85);
-        statsInfo.Location = new Point(12, 34);
-        statsInfo.Font = new Font("Segoe UI", 8.8F);
-        statsInfo.ForeColor = Color.FromArgb(139, 148, 158);
-        statsInfo.Text = "Вставьте код карты или откройте файл .map, чтобы увидеть визуализацию и размеры.";
-
-        statsCard.Controls.Add(statsTitle);
-        statsCard.Controls.Add(statsInfo);
-
-        // 2. Optimization Card
-        optCard.Size = new Size(300, 165);
-        optCard.Location = new Point(12, 152);
-        optCard.BackColor = Color.FromArgb(22, 27, 34);
-        optCard.BorderColor = Color.FromArgb(48, 54, 61);
-        optCard.BorderThickness = 1;
-        optCard.CornerRadius = 10;
-        optCard.Padding = new Padding(12);
-
-        optTitle.AutoSize = false;
-        optTitle.Size = new Size(276, 22);
-        optTitle.Location = new Point(12, 10);
-        optTitle.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-        optTitle.ForeColor = Color.FromArgb(63, 185, 80);
-        optTitle.Text = "⚡  Оптимизация схемы";
-
-        optInfo.AutoSize = false;
-        optInfo.Size = new Size(276, 80);
-        optInfo.Location = new Point(12, 34);
-        optInfo.Font = new Font("Segoe UI", 8.8F);
-        optInfo.ForeColor = Color.FromArgb(139, 148, 158);
-        optInfo.Text = "Нажмите «⚡ Оптимизировать», чтобы алгоритм уплотнил расстояния между блоками и сместил схему в начало координат.";
-
-        copyOptBtn.Text = "📋 Скопировать оптимизированный код";
-        copyOptBtn.Size = new Size(276, 32);
-        copyOptBtn.Location = new Point(12, 120);
-        copyOptBtn.FlatStyle = FlatStyle.Flat;
-        copyOptBtn.FlatAppearance.BorderSize = 0;
-        copyOptBtn.BackColor = Color.FromArgb(31, 111, 235);
-        copyOptBtn.HoverBackColor = Color.FromArgb(56, 139, 253);
-        copyOptBtn.ForeColor = Color.White;
-        copyOptBtn.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
-        copyOptBtn.CornerRadius = 6;
-        copyOptBtn.Cursor = Cursors.Hand;
-        copyOptBtn.Visible = false;
-        copyOptBtn.Click += (_, _) =>
-        {
-            if (lastOptResult is not null)
-            {
-                try
-                {
-                    Clipboard.SetText(lastOptResult.OptimizedBase64);
-                    copyOptBtn.Text = "Скопировано в буфер! ✅";
-                    Task.Delay(1800).ContinueWith(_ =>
-                    {
-                        if (!IsDisposed && copyOptBtn.IsHandleCreated)
-                        {
-                            BeginInvoke(new Action(() => copyOptBtn.Text = "📋 Скопировать код"));
-                        }
-                    });
-                }
-                catch { }
-            }
-        };
-
-        optCard.Controls.Add(optTitle);
-        optCard.Controls.Add(optInfo);
-        optCard.Controls.Add(copyOptBtn);
-
-        // 3. Explorer Guide Card
-        guideCard.Size = new Size(300, 180);
-        guideCard.Location = new Point(12, 327);
-        guideCard.BackColor = Color.FromArgb(22, 27, 34);
-        guideCard.BorderColor = Color.FromArgb(48, 54, 61);
-        guideCard.BorderThickness = 1;
-        guideCard.CornerRadius = 10;
-        guideCard.Padding = new Padding(12);
-
-        guideTitle.AutoSize = false;
-        guideTitle.Size = new Size(276, 22);
-        guideTitle.Location = new Point(12, 10);
-        guideTitle.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-        guideTitle.ForeColor = Color.FromArgb(88, 166, 255);
-        guideTitle.Text = "📁  Куда поместить карту";
-
-        guideText.AutoSize = false;
-        guideText.Size = new Size(276, 95);
-        guideText.Location = new Point(12, 34);
-        guideText.Font = new Font("Segoe UI", 8.5F);
-        guideText.ForeColor = Color.FromArgb(139, 148, 158);
-        guideText.Text = "1. Скопируйте код или сохраните .map файл.\r\n2. В лобби игры нажмите «Карты» ➔ «Импорт» и вставьте код (или выберите файл).\r\n3. Все карты сохраняются в профиле лаунчера:";
-
-        guideFolderBtn.Text = "📁 Открыть папку в Проводнике";
-        guideFolderBtn.Size = new Size(276, 32);
-        guideFolderBtn.Location = new Point(12, 135);
-        guideFolderBtn.FlatStyle = FlatStyle.Flat;
-        guideFolderBtn.FlatAppearance.BorderSize = 0;
-        guideFolderBtn.BackColor = Color.FromArgb(33, 38, 45);
-        guideFolderBtn.HoverBackColor = Color.FromArgb(48, 54, 61);
-        guideFolderBtn.ForeColor = Color.FromArgb(201, 209, 217);
-        guideFolderBtn.BorderColor = Color.FromArgb(48, 54, 61);
-        guideFolderBtn.BorderThickness = 1;
-        guideFolderBtn.Font = new Font("Segoe UI", 8.5F);
-        guideFolderBtn.CornerRadius = 6;
-        guideFolderBtn.Cursor = Cursors.Hand;
-        guideFolderBtn.Click += (_, _) => OpenMapsFolderInExplorer();
-
-        guideCard.Controls.Add(guideTitle);
-        guideCard.Controls.Add(guideText);
-        guideCard.Controls.Add(guideFolderBtn);
-
-        previewSidebar.Controls.Add(statsCard);
-        previewSidebar.Controls.Add(optCard);
-        previewSidebar.Controls.Add(guideCard);
-    }
-
-    private void LoadMapFromInput()
-    {
-        var text = mapInputBox.Text.Trim();
-        if (string.IsNullOrEmpty(text))
-        {
-            currentBlueprint = null;
-            previewControl.Blueprint = null;
-            statsInfo.Text = "Вставьте код карты или откройте файл .map, чтобы увидеть визуализацию и размеры.";
-            optInfo.Text = "Нажмите «⚡ Оптимизировать», чтобы алгоритм уплотнил расстояния между блоками.";
-            copyOptBtn.Visible = false;
-            return;
-        }
-
-        try
-        {
-            currentBlueprint = MapCodec.Decode(text);
-            previewControl.Blueprint = currentBlueprint;
-            lastOptResult = null;
-            copyOptBtn.Visible = false;
-
-            var bbox = currentBlueprint.BoundingBox;
-            statsInfo.Text =
-                $"• Размер схемы:  {bbox.Width} × {bbox.Height} клеток\r\n" +
-                $"• Всего элементов:  {currentBlueprint.CellCount} блоков\r\n" +
-                $"• Занято чанков (16×16):  {currentBlueprint.ChunkCount}\r\n" +
-                $"• Координаты: X:[{bbox.Left}..{bbox.Right - 1}], Y:[{bbox.Top}..{bbox.Bottom - 1}]";
-            statsTitle.ForeColor = Color.FromArgb(240, 246, 252);
-        }
-        catch (Exception ex)
-        {
-            statsTitle.ForeColor = Color.FromArgb(248, 81, 73);
-            statsInfo.Text = $"Ошибка чтения схемы: {ex.Message}";
-        }
-    }
-
-    private void OptimizeCurrentBlueprint(object? sender, EventArgs e)
-    {
-        if (currentBlueprint is null || currentBlueprint.Cells.Count == 0)
-        {
-            MessageBox.Show("Сначала загрузите или вставьте код схемы для оптимизации.", "Схема не загружена", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-
-        lastOptResult = MapOptimizer.Optimize(currentBlueprint);
-        previewControl.Blueprint = lastOptResult.OptimizedBlueprint;
-        mapInputBox.Text = lastOptResult.OptimizedBase64;
-
-        var st = lastOptResult.Stats;
-        optInfo.Text =
-            $"• Исходный размер: {st.OriginalWidth}×{st.OriginalHeight} ({st.OriginalWidth * st.OriginalHeight} кл.)\r\n" +
-            $"• Оптимизированный: {st.OptimizedWidth}×{st.OptimizedHeight} ({st.OptimizedWidth * st.OptimizedHeight} кл.)\r\n" +
-            $"• Сокращение площади: -{st.AreaReductionPercent}%\r\n" +
-            $"• Блоков: {st.OptimizedCells} (смещение в 0,0)";
-
-        copyOptBtn.Visible = true;
-        copyOptBtn.Focus();
-    }
-
-    private void OpenMapFileDialog(object? sender, EventArgs e)
-    {
-        using var dialog = new OpenFileDialog
-        {
-            Title = "Открыть карту Logic Arrows (.map)",
-            Filter = "Карты Logic Arrows (*.map;*.json;*.txt)|*.map;*.json;*.txt|Все файлы (*.*)|*.*"
-        };
-        if (dialog.ShowDialog(this) == DialogResult.OK)
-        {
-            try
-            {
-                var content = File.ReadAllText(dialog.FileName);
-                mapInputBox.Text = content.Trim();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Не удалось открыть файл: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-    }
-
-    private void SaveMapFileDialog(object? sender, EventArgs e)
-    {
-        if (currentBlueprint is null || currentBlueprint.Cells.Count == 0)
-        {
-            MessageBox.Show("Нет загруженной схемы для сохранения.", "Схема пуста", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-
-        using var dialog = new SaveFileDialog
-        {
-            Title = "Сохранить карту Logic Arrows (.map)",
-            Filter = "Logic Arrows Map (*.map)|*.map",
-            FileName = "optimized_mechanism.map",
-            DefaultExt = "map"
-        };
-
-        if (dialog.ShowDialog(this) == DialogResult.OK)
-        {
-            try
-            {
-                var data = MapCodec.Encode(currentBlueprint);
-                var envelope = new MapFileEnvelope
-                {
-                    MapName = Path.GetFileNameWithoutExtension(dialog.FileName),
-                    Data = data
-                };
-                MapFileService.Write(dialog.FileName, envelope);
-                MessageBox.Show(
-                    $"Карта успешно сохранена в:\r\n{dialog.FileName}\r\n\r\nТеперь вы можете импортировать её в лобби игры!",
-                    "Карта сохранена",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка сохранения: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-    }
-
     private static void OpenMapsFolderInExplorer()
     {
         var appDataFolder = Path.Combine(
@@ -877,9 +417,10 @@ public sealed class LauncherForm : Form
             {
                 availableUpdate = update;
                 ShowAvailableUpdate(update);
+                string title = update.IsPatch ? "Мини-патч" : "Обновление лаунчера";
                 MessageBox.Show(
                     $"Найдено обновление {update.TagName}!\r\n\r\n{update.ReleaseName}",
-                    "Обновление лаунчера",
+                    title,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }
@@ -933,7 +474,8 @@ public sealed class LauncherForm : Form
         updateNoticeBtn.Enabled = false;
         playButton.Enabled = false;
 
-        loadingStatus.Text = $"Скачивание {availableUpdate.TagName}...";
+        string label = availableUpdate.IsPatch ? "патча" : "обновления";
+        loadingStatus.Text = $"Скачивание {label} {availableUpdate.TagName}...";
         loadingFile.Text = "Обновление лаунчера с GitHub";
         loadingProgress.Progress = 0;
 
@@ -1063,7 +605,6 @@ public sealed class LauncherForm : Form
         isGameFullscreen = true;
         header.Visible = false;
         loadingOverlay.Visible = false;
-        previewPanel.Visible = false;
         webView.Visible = true;
 
         launcherWindowState = WindowState;
@@ -1079,17 +620,7 @@ public sealed class LauncherForm : Form
         isGameFullscreen = false;
         webView.Visible = false;
         header.Visible = true;
-
-        if (currentTab == 0)
-        {
-            loadingOverlay.Visible = true;
-            previewPanel.Visible = false;
-        }
-        else
-        {
-            loadingOverlay.Visible = false;
-            previewPanel.Visible = true;
-        }
+        loadingOverlay.Visible = true;
 
         FormBorderStyle = launcherBorderStyle;
         WindowState = launcherWindowState;
