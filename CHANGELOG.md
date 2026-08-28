@@ -2,6 +2,16 @@
 
 Все заметные изменения Logic Arrows Launcher собраны в этом файле.
 
+## [1.2.1] — reliable map renaming & public map link display
+
+### Исправлено
+
+- **Применение нового названия карты**: сохранение введённого названия карты теперь надёжно фиксируется и записывается напрямую в локальную базу IndexedDB (`ArrowsDB` -> `mapCache`) и API игры при нажатии `Enter` или смене фокуса.
+
+### Добавлено
+
+- **Ссылка на глобальную карту**: при включении переключателя «Сделать карту публичной» прямо под полем названия карты появляется удобная интерактивная плашка с веб-ссылкой на карту (`https://logic-arrows.io/map-<id>`) и кнопкой копирования в буфер обмена в 1 клик.
+
 ## [1.2.0] — modern human UI redesign & automatic GitHub updates
 
 ### Добавлено
@@ -112,6 +122,7 @@
 - Официальная favicon Logic Arrows в EXE, README и Releases.
 - F11/Esc fullscreen-логика предыдущего выпуска.
 
+[1.2.1]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.2.1
 [1.2.0]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.2.0
 [1.1.5]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.1.5
 [1.1.0]: https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.1.0

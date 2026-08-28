@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/Nikita112jj/LogicArrowsLauncher/releases/latest"><img src="https://img.shields.io/badge/Скачать-актуальный%20релиз-2f8f4e?style=for-the-badge" alt="Скачать последний релиз"></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Версия-1.2.0-7d5cff?style=for-the-badge" alt="Версия 1.2.0"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Версия-1.2.1-7d5cff?style=for-the-badge" alt="Версия 1.2.1"></a>
   <img src="https://img.shields.io/badge/Windows-x64-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows x64">
   <img src="https://img.shields.io/badge/.NET-8-512BD4?style=for-the-badge&logo=dotnet&logoColor=white" alt=".NET 8">
 </p>
@@ -24,11 +24,11 @@
 
 | Платформа | Скачать / открыть | Что внутри |
 |---|---|---|
-| **Windows x64** | [Скачать LogicArrowsLauncher.exe](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/download/v1.2.0/LogicArrowsLauncher.exe) | Готовый self-contained EXE |
+| **Windows x64** | [Скачать LogicArrowsLauncher.exe](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/download/v1.2.1/LogicArrowsLauncher.exe) | Готовый self-contained EXE |
 | **Linux** | [Открыть Linux source](linux/README.md) | Исходники и план GTK/Avalonia/Qt WebEngine-порта |
 | **macOS** | [Открыть macOS source](mac/README.md) | Исходники и план Avalonia/WKWebView-порта |
 
-Также можно открыть [полный релиз v1.2.0](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.2.0), где лежат EXE, ICO и официальная PNG-иконка игры.
+Также можно открыть [полный релиз v1.2.1](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.2.1), где лежат EXE, ICO и официальная PNG-иконка игры.
 
 ## Что умеет лаунчер
 
@@ -46,11 +46,15 @@
 - **Встроенное автообновление**: лаунчер проверяет релизы на GitHub и обновляет себя в один клик.
 - **Чистый человечный дизайн**: лаконичный центрированный интерфейс в стиле GitHub/Linear без визуального шума.
 - **Импортирует карты по Base64-коду (AAAB...), из локальных `.map`-файлов, JSON или по публичному ID/ссылке** (например, `map-6ugjRgZm` или `https://logic-arrows.io/map-6ugjRgZm`) прямо через встроенное диалоговое окно в лобби игры с сохранением названия мира.
-- **Удобное переименование карты**: ввод названия карты защищён от перехвата игровыми горячими клавишами и мгновенно сохраняется по Enter/blur.
+- **Удобное переименование карты и ссылка на публичную карту**: ввод названия карты надёжно сохраняется при Enter/blur, а при включении публичного режима ниже появляется прямая ссылка на карту с кнопкой копирования.
 - Экспортирует открытую карту кнопкой **«Экспорт .map»** в штатных настройках карты.
 - При высоком TPS распределяет тики больших механизмов по небольшому бюджету кадра, чтобы не блокировать отрисовку.
 - Добавляет в настройки аккуратный пункт **«Тема: Системная / Тёмная / Светлая»** с применением сразу и сохранением выбора.
 - Проверяет формат, версию `1_4`, размер и Base64 до передачи карты в официальный runtime игры.
+
+## v1.2.1
+
+В v1.2.1 исправлено применение нового названия карты при редактировании (сохраняется в локальный `mapCache` и синхронизируется с сервером), а также добавлено отображение прямой веб-ссылки на карту прямо под её названием при включении глобального/публичного режима.
 
 ## v1.2.0
 

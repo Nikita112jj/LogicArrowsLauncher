@@ -910,44 +910,148 @@ public static class MapBridgeScript
     globalThis.__logicArrowsLauncherRecoverInput = recover;
   }
 
-  function patchMapNameInput() {
+  function patchMapMenuPanel() {
     if (!/^\/map-[^/]+$/.test(globalThis.location.pathname)) return;
-    const nameInput = document.querySelector('.ui-menu-map-name-input');
-    if (!nameInput || nameInput.dataset.launcherPatched === '1') return;
-    nameInput.dataset.launcherPatched = '1';
+    const panel = document.querySelector('.ui-menu-panel');
+    const nameInput = panel?.querySelector('.ui-menu-map-name-input');
+    const publicCheckbox = panel?.querySelector('.ui-menu-public-checkbox');
+    if (!panel || !nameInput) return;
 
-    const commitName = () => {
-      const val = nameInput.value?.trim();
-      if (!val) return;
-      try {
-        const { gamePage, namespace } = getRuntime();
-        if (gamePage?.mapInfo && gamePage.mapInfo.name !== val) {
-          gamePage.mapInfo.name = val;
-          document.title = `${val} | Logic Arrows`;
-          try { namespace.Backend?.saveMapInfo?.(gamePage.mapInfo, () => {}); } catch { }
-          try { gamePage.saveMap?.(gamePage.mapInfo); } catch { }
-          const saving = document.querySelector('.ui-menu-saving');
-          if (saving) saving.textContent = 'Сохранено';
+    let runtime = null;
+    try { runtime = getRuntime(); } catch { }
+    const mapInfo = runtime?.gamePage?.mapInfo;
+    const namespace = runtime?.namespace || globalThis.game;
+
+    // 1. Map Name Renaming patch
+    if (nameInput.dataset.launcherPatched !== '1') {
+      nameInput.dataset.launcherPatched = '1';
+
+      const commitName = async () => {
+        const val = nameInput.value?.trim();
+        if (!val || !mapInfo) return;
+        mapInfo.name = val;
+        document.title = `${val} | Logic Arrows`;
+        const savingDiv = panel.querySelector('.ui-menu-saving');
+        if (savingDiv) savingDiv.textContent = 'Сохранение...';
+
+        try {
+          if (namespace?.ArrowsDB) {
+            const cached = await namespace.ArrowsDB.read('mapCache', mapInfo.id);
+            if (cached) {
+              await namespace.ArrowsDB.write('mapCache', {
+                ...cached,
+                name: val,
+                version: (cached.version || 0) + 1
+              });
+            } else {
+              await namespace.ArrowsDB.write('mapCache', {
+                ...mapInfo,
+                name: val,
+                version: (mapInfo.version || 0) + 1
+              });
+            }
+          }
+        } catch { }
+
+        try {
+          if (namespace?.Routes?.saveMapInfo) {
+            namespace.Routes.saveMapInfo(mapInfo, () => {});
+          }
+        } catch { }
+
+        if (savingDiv) savingDiv.textContent = 'Сохранено';
+      };
+
+      nameInput.addEventListener('keydown', (event) => {
+        event.stopPropagation();
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          commitName();
+          nameInput.blur();
         }
-      } catch { }
+      });
+      nameInput.addEventListener('keyup', (event) => event.stopPropagation());
+      nameInput.addEventListener('keypress', (event) => event.stopPropagation());
+      nameInput.addEventListener('input', () => {
+        const val = nameInput.value?.trim();
+        if (val) document.title = `${val} | Logic Arrows`;
+      });
+      nameInput.addEventListener('blur', () => {
+        commitName();
+      });
+      nameInput.addEventListener('change', () => {
+        commitName();
+      });
+    }
+
+    // 2. Public Link Container below map name
+    const LINK_BOX_ID = 'logic-arrows-public-link-container';
+    let linkBox = document.getElementById(LINK_BOX_ID);
+    if (!linkBox) {
+      linkBox = document.createElement('div');
+      linkBox.id = LINK_BOX_ID;
+      linkBox.style.width = 'calc(100% - 2vmin)';
+      linkBox.style.margin = '1vmin auto';
+      linkBox.style.padding = '0.8vmin 1.2vmin';
+      linkBox.style.background = 'rgba(31, 111, 235, 0.15)';
+      linkBox.style.border = '1px solid rgba(56, 139, 253, 0.4)';
+      linkBox.style.borderRadius = '0.8vmin';
+      linkBox.style.fontSize = '2.2vmin';
+      linkBox.style.color = '#58a6ff';
+      linkBox.style.display = 'none';
+      linkBox.style.alignItems = 'center';
+      linkBox.style.justifyContent = 'space-between';
+      linkBox.style.cursor = 'pointer';
+      linkBox.style.boxSizing = 'border-box';
+      linkBox.style.userSelect = 'none';
+      linkBox.title = 'Нажмите, чтобы скопировать ссылку на карту';
+
+      nameInput.parentElement?.insertBefore(linkBox, nameInput.nextSibling);
+    }
+
+    const updatePublicLink = () => {
+      if (!mapInfo || !linkBox) return;
+      const isPublic = Boolean(mapInfo.isPublic);
+      if (isPublic) {
+        linkBox.style.display = 'flex';
+        const cleanId = mapInfo.id?.replace(/^map-/, '') || mapInfo.id;
+        const url = `https://logic-arrows.io/map-${cleanId}`;
+        linkBox.innerHTML = `
+          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 78%; font-family: var(--font);">
+            🌐 <span style="text-decoration: underline;">${url}</span>
+          </span>
+          <span style="font-size: 1.8vmin; font-family: var(--font); background: rgba(56, 139, 253, 0.3); padding: 0.3vmin 0.8vmin; border-radius: 0.5vmin; color: #ffffff;">Копировать 📋</span>
+        `;
+        linkBox.onclick = (e) => {
+          e.stopPropagation();
+          try {
+            if (navigator.clipboard?.writeText) {
+              navigator.clipboard.writeText(url);
+            } else {
+              const tempInput = document.createElement('input');
+              tempInput.value = url;
+              document.body.appendChild(tempInput);
+              tempInput.select();
+              document.execCommand('copy');
+              tempInput.remove();
+            }
+            linkBox.innerHTML = `<span style="color: #3fb950; font-weight: bold; font-family: var(--font);">Ссылка скопирована в буфер! ✅</span>`;
+            setTimeout(updatePublicLink, 1800);
+          } catch { }
+        };
+      } else {
+        linkBox.style.display = 'none';
+      }
     };
 
-    nameInput.addEventListener('keydown', (event) => {
-      event.stopPropagation();
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        commitName();
-        nameInput.blur();
-      }
-    });
-    nameInput.addEventListener('keyup', (event) => event.stopPropagation());
-    nameInput.addEventListener('keypress', (event) => event.stopPropagation());
-    nameInput.addEventListener('input', () => {
-      const val = nameInput.value?.trim();
-      if (val) document.title = `${val} | Logic Arrows`;
-    });
-    nameInput.addEventListener('blur', commitName);
-    nameInput.addEventListener('change', commitName);
+    updatePublicLink();
+
+    if (publicCheckbox && publicCheckbox.dataset.launcherPatched !== '1') {
+      publicCheckbox.dataset.launcherPatched = '1';
+      publicCheckbox.addEventListener('click', () => {
+        setTimeout(updatePublicLink, 50);
+      });
+    }
   }
 
   function patchDarkArrowCellShader(source) {
@@ -1764,7 +1868,7 @@ public static class MapBridgeScript
     upgradeSettingsDropdowns();
     addLobbyImportCard();
     addExportButton();
-    patchMapNameInput();
+    patchMapMenuPanel();
     tryPendingLobbyImport();
   }
 
