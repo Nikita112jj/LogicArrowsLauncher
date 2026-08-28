@@ -1518,6 +1518,13 @@ public static class MapBridgeScript
       throw new Error('Данные карты не являются корректным Base64.');
     }
     if (bytes.length < 4) throw new Error('Экспорт карты слишком короткий.');
+    // КРИТИЧНО: load игры только создаёт/перезаписывает чанки из потока и НЕ удаляет
+    // старые чанки за пределами импортируемых данных. Без очистки импорт перемешивает
+    // импортируемую карту с содержимым открытой карты (см. pasteFromText игры —
+    // там tempMap.clear() перед load).
+    if (typeof map.clear === 'function') map.clear();
+    else if (map.chunks && typeof map.chunks.clear === 'function') map.chunks.clear();
+    else throw new Error('Не удалось очистить карту перед импортом.');
     namespace.load(map, bytes);
     game.screenUpdated = true;
     return { ok: true, imported: bytes.length };
