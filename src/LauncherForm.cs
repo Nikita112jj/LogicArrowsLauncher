@@ -909,10 +909,19 @@ public sealed class LauncherForm : Form
 
     private void ShowAvailableUpdate(UpdateInfo update)
     {
-        updateButton.Text = $"⚡ {update.TagName}";
+        if (update.IsPatch)
+        {
+            updateButton.Text = $"⚡ Патч {update.TagName}";
+            updateNoticeLabel.Text = $"Доступен мини-патч {update.TagName}";
+            updateNoticeBtn.Text = "Обновить патч";
+        }
+        else
+        {
+            updateButton.Text = $"⚡ {update.TagName}";
+            updateNoticeLabel.Text = $"Доступна версия {update.TagName}";
+            updateNoticeBtn.Text = "Обновить";
+        }
         updateButton.Visible = true;
-
-        updateNoticeLabel.Text = $"Доступна версия {update.TagName}";
         updateNoticePanel.Visible = true;
     }
 
@@ -1124,6 +1133,10 @@ public sealed class LauncherForm : Form
                     {
                         _ = ImportFromLobbyAsync(text);
                     }
+                }
+                else if (typeStr == "open-maps-folder")
+                {
+                    OpenMapsFolderInExplorer();
                 }
                 else if (typeStr == "bridge-error")
                 {

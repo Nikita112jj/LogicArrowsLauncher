@@ -1882,6 +1882,661 @@ public static class MapBridgeScript
     panel.append(actions);
   }
 
+  // --- In-Game Preview & Optimization Studio ---
+  const PREVIEW_SIDEBAR_ID = 'side-menu-preview-btn';
+  const PREVIEW_CONTAINER_ID = 'logic-preview-studio-container';
+
+  function decodeBase64Map(base64) {
+    const raw = globalThis.atob(base64.trim());
+    const buf = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) buf[i] = raw.charCodeAt(i);
+    let offset = 0;
+    const readU8 = () => buf[offset++];
+    const readU16 = () => { const l = readU8(); const h = readU8(); return (h << 8) | l; };
+    const readS16 = () => { const v = readU16(); return (v & 0x8000) ? -(v & 0x7FFF) : v; };
+
+    const version = readU16();
+    if (version !== 0) throw new Error('Неподдерживаемая версия карты: ' + version);
+    const chunkCount = readU16();
+    const cells = [];
+    for (let c = 0; c < chunkCount; c++) {
+      const cx = readS16();
+      const cy = readS16();
+      const typeCount = readU8() + 1;
+      for (let t = 0; t < typeCount; t++) {
+        const type = readU8();
+        const arrowCount = readU8() + 1;
+        for (let a = 0; a < arrowCount; a++) {
+          const pos = readU8();
+          const rot = readU8();
+          const lx = pos & 0xF;
+          const ly = pos >> 4;
+          const rotation = rot & 0x3;
+          const flipped = (rot & 0x4) !== 0 || (rot & 0x8) !== 0;
+          cells.push({ x: cx * 16 + lx, y: cy * 16 + ly, type, rotation, flipped });
+        }
+      }
+    }
+    return cells;
+  }
+
+  function encodeBase64Map(cells) {
+    const bytes = [];
+    const writeU8 = (v) => bytes.push(v & 0xFF);
+    const writeU16 = (v) => { writeU8(v & 0xFF); writeU8((v >> 8) & 0xFF); };
+    const writeS16 = (v) => { const enc = v < 0 ? ((-v) | 0x8000) : v; writeU16(enc); };
+
+    writeU16(0);
+    const chunks = new Map();
+    for (const c of cells) {
+      const cx = c.x >= 0 ? Math.floor(c.x / 16) : Math.floor((c.x - 15) / 16);
+      const cy = c.y >= 0 ? Math.floor(c.y / 16) : Math.floor((c.y - 15) / 16);
+      const key = `${cx},${cy}`;
+      if (!chunks.has(key)) chunks.set(key, { cx, cy, cells: [] });
+      chunks.get(key).cells.push(c);
+    }
+
+    writeU16(chunks.size);
+    for (const chunk of chunks.values()) {
+      writeS16(chunk.cx);
+      writeS16(chunk.cy);
+      const types = new Map();
+      for (const c of chunk.cells) {
+        if (!types.has(c.type)) types.set(c.type, []);
+        types.get(c.type).push(c);
+      }
+      writeU8(types.size - 1);
+      for (const [type, arr] of types) {
+        writeU8(type);
+        writeU8(arr.length - 1);
+        for (const a of arr) {
+          const lx = a.x - (chunk.cx * 16);
+          const ly = a.y - (chunk.cy * 16);
+          const pos = (ly << 4) | (lx & 0xF);
+          const rot = (a.flipped ? 4 : 0) | (a.rotation & 3);
+          writeU8(pos);
+          writeU8(rot);
+        }
+      }
+    }
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return globalThis.btoa(binary);
+  }
+
+  function optimizeCells(cells) {
+    if (!cells || cells.length === 0) return { cells: [], base64: '', stats: {} };
+    const mapByCoord = new Map();
+    for (const c of cells) {
+      mapByCoord.set(`${c.x},${c.y}`, { ...c });
+    }
+    const cleanCells = Array.from(mapByCoord.values());
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const c of cleanCells) {
+      if (c.x < minX) minX = c.x;
+      if (c.x > maxX) maxX = c.x;
+      if (c.y < minY) minY = c.y;
+      if (c.y > maxY) maxY = c.y;
+    }
+    const origW = Math.max(1, maxX - minX + 1);
+    const origH = Math.max(1, maxY - minY + 1);
+    const origArea = origW * origH;
+
+    for (const c of cleanCells) {
+      c.x -= minX;
+      c.y -= minY;
+    }
+
+    const usedX = Array.from(new Set(cleanCells.map(c => c.x))).sort((a, b) => a - b);
+    const usedY = Array.from(new Set(cleanCells.map(c => c.y))).sort((a, b) => a - b);
+
+    const mapX = new Map();
+    let newX = 1;
+    for (let i = 0; i < usedX.length; i++) {
+      if (i > 0) newX += Math.min(usedX[i] - usedX[i - 1], 1);
+      mapX.set(usedX[i], newX);
+    }
+
+    const mapY = new Map();
+    let newY = 1;
+    for (let i = 0; i < usedY.length; i++) {
+      if (i > 0) newY += Math.min(usedY[i] - usedY[i - 1], 1);
+      mapY.set(usedY[i], newY);
+    }
+
+    for (const c of cleanCells) {
+      if (mapX.has(c.x)) c.x = mapX.get(c.x);
+      if (mapY.has(c.y)) c.y = mapY.get(c.y);
+    }
+
+    let optMinX = Infinity, optMinY = Infinity, optMaxX = -Infinity, optMaxY = -Infinity;
+    for (const c of cleanCells) {
+      if (c.x < optMinX) optMinX = c.x;
+      if (c.x > optMaxX) optMaxX = c.x;
+      if (c.y < optMinY) optMinY = c.y;
+      if (c.y > optMaxY) optMaxY = c.y;
+    }
+    const optW = Math.max(1, optMaxX - optMinX + 1);
+    const optH = Math.max(1, optMaxY - optMinY + 1);
+    const optArea = optW * optH;
+    const reduction = Math.max(0, Math.round((1.0 - optArea / origArea) * 1000) / 10);
+
+    const base64 = encodeBase64Map(cleanCells);
+    return {
+      cells: cleanCells,
+      base64,
+      stats: {
+        origW, origH, origCells: cells.length,
+        optW, optH, optCells: cleanCells.length,
+        reduction
+      }
+    };
+  }
+
+  function getArrowColor(type) {
+    switch (type) {
+      case 1: return '#f85149';
+      case 2: return '#ff6b6b';
+      case 3: return '#f85149';
+      case 4: return '#58a6ff';
+      case 5: return '#ffc107';
+      case 6: case 7: case 8: return '#f85149';
+      case 9: return '#ff4081';
+      case 10: case 11: case 12: case 13: case 14: return '#58a6ff';
+      case 15: case 16: case 17: case 18: case 19: return '#e3b341';
+      case 20: case 21: case 22: return '#db6d28';
+      case 23: return '#3fb950';
+      case 24: return '#f85149';
+      case 25: return '#00d2ff';
+      default: return '#8b949e';
+    }
+  }
+
+  function getArrowName(type) {
+    switch (type) {
+      case 1: return 'Стрелка (Красная)';
+      case 2: return 'Источник (Source)';
+      case 3: return 'Блокировщик (Blocker)';
+      case 4: return 'Задержка (Delay)';
+      case 5: return 'Детектор (Detector)';
+      case 6: return 'Разветвитель Вверх-Вниз';
+      case 7: return 'Разветвитель Вверх-Вправо';
+      case 8: return 'Разветвитель Тройной';
+      case 9: return 'Генератор импульсов';
+      case 10: return 'Синяя быстрая стрелка';
+      case 11: return 'Диагональная стрелка';
+      case 15: return 'НЕ (NOT Gate)';
+      case 16: return 'И (AND Gate)';
+      case 17: return 'ИСКЛ-ИЛИ (XOR Gate)';
+      case 18: return 'Защёлка (Latch)';
+      case 19: return 'T-триггер (T-FF)';
+      case 20: return 'Случайный (Random)';
+      case 21: case 22: return 'Кнопка (Button)';
+      case 25: return '7-сегментный дисплей';
+      default: return 'Блок #' + type;
+    }
+  }
+
+  function renderInGamePreviewStudio(container) {
+    container.innerHTML = `
+      <div id="${PREVIEW_CONTAINER_ID}" style="display:flex;flex-direction:column;width:100%;height:100%;background:#0d1117;color:#f0f6fc;font-family:var(--font,sans-serif);box-sizing:border-box;">
+        <!-- Top Toolbar -->
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:#161b22;border-bottom:1px solid #30363d;flex-wrap:wrap;z-index:2;">
+          <input type="text" id="logic-preview-input" placeholder="Вставьте код карты (AAAB...) или JSON..." style="flex:1;min-width:200px;background:#0d1117;color:#f0f6fc;border:1px solid #30363d;border-radius:6px;padding:6px 10px;font-size:13px;font-family:Consolas,monospace;">
+          <button type="button" id="logic-preview-paste-btn" style="background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;">📋 Вставить</button>
+          <button type="button" id="logic-preview-open-btn" style="background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;">📂 Загрузить .map</button>
+          <input type="file" id="logic-preview-file-input" accept=".map,.json,.txt" style="display:none;">
+          <button type="button" id="logic-preview-opt-btn" style="background:#238636;color:#fff;border:1px solid #2ea043;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:bold;">⚡ Уменьшить / Оптимизировать</button>
+          <button type="button" id="logic-preview-save-btn" style="background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;">💾 Сохранить .map</button>
+          <button type="button" id="logic-preview-center-btn" style="background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;">🎯 По центру</button>
+        </div>
+
+        <!-- Main Workspace -->
+        <div style="display:flex;flex:1;overflow:hidden;position:relative;">
+          <!-- Canvas Viewport -->
+          <div id="logic-preview-canvas-wrap" style="flex:1;position:relative;background:#0d1117;overflow:hidden;">
+            <canvas id="logic-preview-canvas" style="display:block;width:100%;height:100%;cursor:grab;"></canvas>
+            <div id="logic-preview-tooltip" style="position:absolute;bottom:12px;left:12px;background:rgba(22,27,34,0.92);border:1px solid #30363d;padding:6px 12px;border-radius:6px;font-size:12px;color:#c9d1d9;pointer-events:none;display:none;"></div>
+          </div>
+
+          <!-- Sidebar Info Panel -->
+          <div style="width:310px;background:#161b22;border-left:1px solid #30363d;padding:14px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;box-sizing:border-box;">
+            <!-- Stats Card -->
+            <div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px;">
+              <div style="font-size:14px;font-weight:bold;color:#f0f6fc;margin-bottom:6px;">📊 Свойства схемы</div>
+              <div id="logic-preview-stats" style="font-size:12.5px;color:#8b949e;line-height:1.5;">Вставьте код схемы (AAAB...) для просмотра.</div>
+            </div>
+
+            <!-- Optimization Card -->
+            <div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px;">
+              <div style="font-size:14px;font-weight:bold;color:#3fb950;margin-bottom:6px;">⚡ Оптимизация</div>
+              <div id="logic-preview-opt-info" style="font-size:12.5px;color:#8b949e;line-height:1.5;">Нажмите «⚡ Уменьшить / Оптимизировать», чтобы компактно перестроить схему.</div>
+              <button type="button" id="logic-preview-copy-btn" style="display:none;width:100%;margin-top:10px;background:#1f6feb;color:#fff;border:none;border-radius:6px;padding:8px;cursor:pointer;font-size:12.5px;font-weight:bold;">📋 Скопировать код</button>
+            </div>
+
+            <!-- Explorer Guide Card -->
+            <div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px;">
+              <div style="font-size:14px;font-weight:bold;color:#58a6ff;margin-bottom:6px;">📁 Куда поместить карту</div>
+              <div style="font-size:12px;color:#8b949e;line-height:1.5;margin-bottom:10px;">
+                1. Скопируйте Base64-код и в разделе <b>Карты</b> нажмите <b>«Импорт карты»</b>.<br>
+                2. Либо сохраните файл .map и откройте папку проводника:
+              </div>
+              <button type="button" id="logic-preview-folder-btn" style="width:100%;background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:8px;cursor:pointer;font-size:12.5px;font-weight:500;">📁 Папка с картами в Explorer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const input = document.getElementById('logic-preview-input');
+    const pasteBtn = document.getElementById('logic-preview-paste-btn');
+    const openBtn = document.getElementById('logic-preview-open-btn');
+    const fileInput = document.getElementById('logic-preview-file-input');
+    const optBtn = document.getElementById('logic-preview-opt-btn');
+    const saveBtn = document.getElementById('logic-preview-save-btn');
+    const centerBtn = document.getElementById('logic-preview-center-btn');
+    const copyBtn = document.getElementById('logic-preview-copy-btn');
+    const folderBtn = document.getElementById('logic-preview-folder-btn');
+    const statsDiv = document.getElementById('logic-preview-stats');
+    const optInfoDiv = document.getElementById('logic-preview-opt-info');
+    const tooltip = document.getElementById('logic-preview-tooltip');
+
+    const canvas = document.getElementById('logic-preview-canvas');
+    const ctx = canvas.getContext('2d');
+
+    let currentCells = [];
+    let lastOpt = null;
+    let cellSize = 32;
+    let offsetX = 0;
+    let offsetY = 0;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
+    function resizeCanvas() {
+      const wrap = document.getElementById('logic-preview-canvas-wrap');
+      if (!wrap) return;
+      const rect = wrap.getBoundingClientRect();
+      canvas.width = Math.max(100, Math.round(rect.width * window.devicePixelRatio));
+      canvas.height = Math.max(100, Math.round(rect.height * window.devicePixelRatio));
+      draw();
+    }
+
+    function resetView() {
+      if (currentCells.length === 0) {
+        cellSize = 32;
+        offsetX = canvas.width / (2 * window.devicePixelRatio);
+        offsetY = canvas.height / (2 * window.devicePixelRatio);
+        draw();
+        return;
+      }
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const c of currentCells) {
+        if (c.x < minX) minX = c.x;
+        if (c.x > maxX) maxX = c.x;
+        if (c.y < minY) minY = c.y;
+        if (c.y > maxY) maxY = c.y;
+      }
+      const w = maxX - minX + 1;
+      const h = maxY - minY + 1;
+      const viewW = canvas.width / window.devicePixelRatio - 60;
+      const viewH = canvas.height / window.devicePixelRatio - 60;
+      cellSize = Math.max(16, Math.min(64, Math.min(viewW / Math.max(1, w), viewH / Math.max(1, h))));
+      const midX = (minX + w / 2) * cellSize;
+      const midY = (minY + h / 2) * cellSize;
+      offsetX = (canvas.width / (2 * window.devicePixelRatio)) - midX;
+      offsetY = (canvas.height / (2 * window.devicePixelRatio)) - midY;
+      draw();
+    }
+
+    function draw() {
+      if (!ctx) return;
+      const dpr = window.devicePixelRatio || 1;
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      const width = canvas.width / dpr;
+      const height = canvas.height / dpr;
+
+      ctx.fillStyle = '#0d1117';
+      ctx.fillRect(0, 0, width, height);
+
+      // 1. Grid
+      const minX = Math.floor(-offsetX / cellSize) - 1;
+      const maxX = Math.ceil((width - offsetX) / cellSize) + 1;
+      const minY = Math.floor(-offsetY / cellSize) - 1;
+      const maxY = Math.ceil((height - offsetY) / cellSize) + 1;
+
+      ctx.lineWidth = 1;
+      for (let x = minX; x <= maxX; x++) {
+        const sx = offsetX + x * cellSize;
+        ctx.strokeStyle = (x % 16 === 0) ? '#30363d' : '#161b22';
+        ctx.beginPath();
+        ctx.moveTo(sx, 0);
+        ctx.lineTo(sx, height);
+        ctx.stroke();
+      }
+      for (let y = minY; y <= maxY; y++) {
+        const sy = offsetY + y * cellSize;
+        ctx.strokeStyle = (y % 16 === 0) ? '#30363d' : '#161b22';
+        ctx.beginPath();
+        ctx.moveTo(0, sy);
+        ctx.lineTo(width, sy);
+        ctx.stroke();
+      }
+
+      // 2. Cells
+      for (const cell of currentCells) {
+        const cx = offsetX + cell.x * cellSize;
+        const cy = offsetY + cell.y * cellSize;
+        if (cx + cellSize < 0 || cx > width || cy + cellSize < 0 || cy > height) continue;
+
+        ctx.save();
+        ctx.translate(cx + cellSize / 2, cy + cellSize / 2);
+        ctx.rotate((cell.rotation * 90 * Math.PI) / 180);
+        if (cell.flipped) ctx.scale(-1, 1);
+
+        const s = cellSize * 0.85;
+        const color = getArrowColor(cell.type);
+        ctx.fillStyle = color;
+        ctx.strokeStyle = color;
+
+        // Draw based on type
+        if (cell.type === 1 || cell.type === 4 || cell.type === 5) {
+          // Arrow
+          ctx.beginPath();
+          ctx.moveTo(0, -s * 0.5);
+          ctx.lineTo(s * 0.45, s * 0.45);
+          ctx.lineTo(0, s * 0.2);
+          ctx.lineTo(-s * 0.45, s * 0.45);
+          ctx.closePath();
+          ctx.fill();
+          if (cell.type === 5) {
+            ctx.fillStyle = '#ffeb3b';
+            ctx.beginPath();
+            ctx.arc(0, s * 0.2, s * 0.15, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else if (cell.type === 10) {
+          // Double speed blue arrow
+          ctx.beginPath();
+          ctx.moveTo(0, -s * 0.5);
+          ctx.lineTo(s * 0.4, -s * 0.1);
+          ctx.lineTo(0, -s * 0.25);
+          ctx.lineTo(-s * 0.4, -s * 0.1);
+          ctx.closePath();
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(0, -s * 0.1);
+          ctx.lineTo(s * 0.4, s * 0.35);
+          ctx.lineTo(0, s * 0.15);
+          ctx.lineTo(-s * 0.4, s * 0.35);
+          ctx.closePath();
+          ctx.fill();
+        } else if (cell.type >= 15 && cell.type <= 19) {
+          // Logic Gate Badge
+          ctx.fillStyle = 'rgba(227, 179, 65, 0.2)';
+          ctx.fillRect(-s * 0.45, -s * 0.45, s * 0.9, s * 0.9);
+          ctx.strokeRect(-s * 0.45, -s * 0.45, s * 0.9, s * 0.9);
+          if (s >= 20) {
+            ctx.fillStyle = '#f0f6fc';
+            ctx.font = 'bold ' + Math.max(7, Math.floor(s * 0.28)) + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const name = cell.type === 15 ? 'NOT' : cell.type === 16 ? 'AND' : cell.type === 17 ? 'XOR' : cell.type === 18 ? 'LAT' : 'T';
+            ctx.fillText(name, 0, 0);
+          }
+        } else if (cell.type === 25) {
+          // Display
+          ctx.fillStyle = 'rgba(0, 210, 255, 0.2)';
+          ctx.fillRect(-s * 0.45, -s * 0.45, s * 0.9, s * 0.9);
+          ctx.strokeRect(-s * 0.45, -s * 0.45, s * 0.9, s * 0.9);
+          if (s >= 18) {
+            ctx.fillStyle = '#00d2ff';
+            ctx.font = 'bold ' + Math.max(8, Math.floor(s * 0.45)) + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('8', 0, 0);
+          }
+        } else {
+          // Generic
+          ctx.beginPath();
+          ctx.moveTo(0, -s * 0.45);
+          ctx.lineTo(s * 0.4, s * 0.4);
+          ctx.lineTo(0, s * 0.2);
+          ctx.lineTo(-s * 0.4, s * 0.4);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      ctx.restore();
+    }
+
+    function loadFromText(text) {
+      const trimmed = (text || '').trim();
+      if (!trimmed) {
+        currentCells = [];
+        statsDiv.textContent = 'Вставьте код схемы (AAAB...) для просмотра.';
+        draw();
+        return;
+      }
+      try {
+        let base64 = trimmed;
+        if (trimmed.startsWith('{')) {
+          const parsed = JSON.parse(trimmed);
+          base64 = parsed.data || trimmed;
+        }
+        currentCells = decodeBase64Map(base64);
+        lastOpt = null;
+        copyBtn.style.display = 'none';
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const c of currentCells) {
+          if (c.x < minX) minX = c.x;
+          if (c.x > maxX) maxX = c.x;
+          if (c.y < minY) minY = c.y;
+          if (c.y > maxY) maxY = c.y;
+        }
+        const w = maxX - minX + 1;
+        const h = maxY - minY + 1;
+        const chunks = new Set(currentCells.map(c => `${Math.floor(c.x / 16)},${Math.floor(c.y / 16)}`)).size;
+        statsDiv.innerHTML = `
+          • Размер: <b>${w} × ${h}</b> клеток<br>
+          • Блоков: <b>${currentCells.length}</b><br>
+          • Чанков: <b>${chunks}</b><br>
+          • Координаты: [${minX}..${maxX}], [${minY}..${maxY}]
+        `;
+        resetView();
+      } catch (err) {
+        statsDiv.innerHTML = `<span style="color:#f85149">Ошибка: ${err.message || err}</span>`;
+      }
+    }
+
+    input.addEventListener('input', () => loadFromText(input.value));
+    pasteBtn.addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard?.readText?.();
+        if (text) { input.value = text; loadFromText(text); }
+      } catch {
+        const manual = prompt('Вставьте код схемы (Base64 или JSON):');
+        if (manual) { input.value = manual; loadFromText(manual); }
+      }
+    });
+
+    openBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      input.value = text;
+      loadFromText(text);
+    });
+
+    optBtn.addEventListener('click', () => {
+      if (currentCells.length === 0) {
+        alert('Сначала вставьте или загрузите код схемы.');
+        return;
+      }
+      lastOpt = optimizeCells(currentCells);
+      currentCells = lastOpt.cells;
+      input.value = lastOpt.base64;
+      optInfoDiv.innerHTML = `
+        • Исходный: <b>${lastOpt.stats.origW}×${lastOpt.stats.origH}</b><br>
+        • Оптимизированный: <b>${lastOpt.stats.optW}×${lastOpt.stats.optH}</b><br>
+        • Экономия площади: <b style="color:#3fb950">-${lastOpt.stats.reduction}%</b><br>
+        • Блоков: <b>${lastOpt.stats.optCells}</b> (в начале 0,0)
+      `;
+      copyBtn.style.display = 'block';
+      resetView();
+    });
+
+    copyBtn.addEventListener('click', async () => {
+      if (lastOpt?.base64) {
+        try {
+          await navigator.clipboard.writeText(lastOpt.base64);
+          copyBtn.textContent = 'Скопировано! ✅';
+          setTimeout(() => { copyBtn.textContent = '📋 Скопировать код'; }, 1800);
+        } catch { }
+      }
+    });
+
+    saveBtn.addEventListener('click', () => {
+      if (currentCells.length === 0) return;
+      const base64 = encodeBase64Map(currentCells);
+      const envelope = JSON.stringify({ format: 'logic-arrows-map', formatVersion: 1, siteVersion: '1_4', data: base64 }, null, 2);
+      const blob = new Blob([envelope], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'optimized-map.map';
+      a.click();
+    });
+
+    centerBtn.addEventListener('click', resetView);
+
+    folderBtn.addEventListener('click', () => {
+      post({ type: 'open-maps-folder' });
+    });
+
+    // Canvas Events
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      canvas.style.cursor = 'grabbing';
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      if (isDragging) {
+        offsetX += (e.clientX - dragStartX);
+        offsetY += (e.clientY - dragStartY);
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        draw();
+      } else {
+        const cellX = Math.floor((mouseX - offsetX) / cellSize);
+        const cellY = Math.floor((mouseY - offsetY) / cellSize);
+        const hit = currentCells.find(c => c.x === cellX && c.y === cellY);
+        if (hit) {
+          tooltip.style.display = 'block';
+          tooltip.textContent = `(${cellX}, ${cellY}) • ${getArrowName(hit.type)}`;
+        } else {
+          tooltip.style.display = 'none';
+        }
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        canvas.style.cursor = 'grab';
+      }
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      const oldCellSize = cellSize;
+      const factor = e.deltaY < 0 ? 1.15 : 0.85;
+      cellSize = Math.max(8, Math.min(100, cellSize * factor));
+
+      const worldX = (mouseX - offsetX) / oldCellSize;
+      const worldY = (mouseY - offsetY) / oldCellSize;
+      offsetX = mouseX - worldX * cellSize;
+      offsetY = mouseY - worldY * cellSize;
+      draw();
+    }, { passive: false });
+
+    globalThis.addEventListener('resize', resizeCanvas);
+    setTimeout(resizeCanvas, 30);
+  }
+
+  function patchMenuPageSideBar() {
+    const sideBar = document.getElementById('menu-page-side-bar');
+    if (!sideBar) return;
+
+    if (!document.getElementById(PREVIEW_SIDEBAR_ID)) {
+      const previewBtn = document.createElement('div');
+      previewBtn.id = PREVIEW_SIDEBAR_ID;
+      previewBtn.className = 'side-menu-element';
+      previewBtn.setAttribute('role', 'button');
+      previewBtn.setAttribute('tabindex', '0');
+      previewBtn.style.cursor = 'pointer';
+
+      const icon = document.createElement('div');
+      icon.className = 'side-menu-icon';
+      icon.style.display = 'flex';
+      icon.style.alignItems = 'center';
+      icon.style.justifyContent = 'center';
+      icon.innerHTML = `<svg viewBox="0 0 24 24" width="32" height="32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto;pointer-events:none;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+
+      const title = document.createElement('div');
+      title.className = 'side-menu-title';
+      title.textContent = 'Превью';
+
+      previewBtn.append(icon, title);
+
+      const guideBtn = Array.from(sideBar.children).find(c => {
+        const t = c.querySelector('.side-menu-title')?.textContent || '';
+        return t.includes('Гайд') || t.includes('Guide') || t.includes('Настройки') || t.includes('Settings');
+      });
+      if (guideBtn) sideBar.insertBefore(previewBtn, guideBtn);
+      else sideBar.appendChild(previewBtn);
+
+      const activatePreview = () => {
+        sideBar.querySelectorAll('.side-menu-element').forEach(el => el.classList.remove('side-menu-element-selected'));
+        previewBtn.classList.add('side-menu-element-selected');
+        const content = document.getElementById('menu-page-content');
+        if (content) {
+          content.innerHTML = '';
+          renderInGamePreviewStudio(content);
+        }
+      };
+
+      previewBtn.addEventListener('click', activatePreview);
+      previewBtn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activatePreview(); }
+      });
+    }
+
+    sideBar.querySelectorAll('.side-menu-element').forEach(el => {
+      if (el.id !== PREVIEW_SIDEBAR_ID && !el.dataset.previewHooked) {
+        el.dataset.previewHooked = '1';
+        el.addEventListener('click', () => {
+          document.getElementById(PREVIEW_SIDEBAR_ID)?.classList.remove('side-menu-element-selected');
+        });
+      }
+    });
+  }
+
   function syncUi() {
     installGameFocusRecovery();
     installDarkArrowCellShaderHook();
@@ -1897,6 +2552,7 @@ public static class MapBridgeScript
     addLobbyImportCard();
     addExportButton();
     patchMapMenuPanel();
+    patchMenuPageSideBar();
     tryPendingLobbyImport();
   }
 

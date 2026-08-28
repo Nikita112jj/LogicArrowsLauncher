@@ -11,7 +11,10 @@ public sealed record UpdateInfo(
     string ReleaseName,
     string ReleaseNotes,
     string DownloadUrl,
-    long FileSize
+    long FileSize,
+    bool IsPatch = false,
+    long ReleaseId = 0,
+    DateTimeOffset? PublishedAt = null
 );
 
 public static class LauncherUpdater
@@ -20,7 +23,7 @@ public static class LauncherUpdater
     public static readonly Version CurrentVersion =
         Assembly.GetExecutingAssembly().GetName().Version is { } v
             ? new Version(v.Major, v.Minor, Math.Max(0, v.Build))
-            : new Version(1, 2, 0);
+            : new Version(1, 3, 0);
 
     public static async Task<UpdateInfo?> CheckForUpdatesAsync(CancellationToken cancellationToken = default)
     {
@@ -41,13 +44,22 @@ public static class LauncherUpdater
             if (!root.TryGetProperty("tag_name", out var tagProp)) return null;
             var tag = tagProp.GetString() ?? string.Empty;
             var parsedVer = ParseVersion(tag);
-            if (parsedVer is null || parsedVer <= CurrentVersion) return null;
+            if (parsedVer is null) return null;
 
             var name = root.TryGetProperty("name", out var nameProp) ? nameProp.GetString() ?? tag : tag;
             var body = root.TryGetProperty("body", out var bodyProp) ? bodyProp.GetString() ?? string.Empty : string.Empty;
+            long releaseId = root.TryGetProperty("id", out var idProp) ? idProp.GetInt64() : 0;
+
+            DateTimeOffset? publishedAt = null;
+            if (root.TryGetProperty("published_at", out var pubProp) &&
+                DateTimeOffset.TryParse(pubProp.GetString(), out var parsedPub))
+            {
+                publishedAt = parsedPub;
+            }
 
             string? downloadUrl = null;
             long fileSize = 0;
+            DateTimeOffset? assetUpdatedAt = null;
 
             if (root.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
             {
@@ -58,6 +70,11 @@ public static class LauncherUpdater
                     {
                         downloadUrl = asset.TryGetProperty("browser_download_url", out var du) ? du.GetString() : null;
                         fileSize = asset.TryGetProperty("size", out var sz) ? sz.GetInt64() : 0;
+                        if (asset.TryGetProperty("updated_at", out var au) &&
+                            DateTimeOffset.TryParse(au.GetString(), out var parsedAu))
+                        {
+                            assetUpdatedAt = parsedAu;
+                        }
                         break;
                     }
                 }
@@ -65,7 +82,38 @@ public static class LauncherUpdater
 
             if (string.IsNullOrWhiteSpace(downloadUrl)) return null;
 
-            return new UpdateInfo(tag, parsedVer, name, body, downloadUrl, fileSize);
+            // Determine if this is a new major/minor version or a mini patch update
+            bool isNewerVersion = parsedVer > CurrentVersion;
+            bool isPatch = false;
+
+            if (!isNewerVersion)
+            {
+                // Check if this is a patch on the same or current version
+                var exePath = Application.ExecutablePath;
+                if (File.Exists(exePath))
+                {
+                    var localExeWriteTime = File.GetLastWriteTimeUtc(exePath);
+                    var localExeSize = new FileInfo(exePath).Length;
+
+                    var remoteTime = assetUpdatedAt ?? publishedAt;
+                    // If remote asset was published/updated after our local file, or tag/body indicates patch
+                    bool newerRemote = remoteTime.HasValue && remoteTime.Value.UtcDateTime > localExeWriteTime.AddMinutes(2);
+                    bool sizeDifferent = fileSize > 0 && Math.Abs(fileSize - localExeSize) > 512;
+                    bool nameMentionsPatch = name.Contains("патч", StringComparison.OrdinalIgnoreCase) ||
+                                            name.Contains("patch", StringComparison.OrdinalIgnoreCase) ||
+                                            name.Contains("hotfix", StringComparison.OrdinalIgnoreCase) ||
+                                            tag.Contains("patch", StringComparison.OrdinalIgnoreCase);
+
+                    if (newerRemote || (nameMentionsPatch && sizeDifferent))
+                    {
+                        isPatch = true;
+                    }
+                }
+
+                if (!isPatch) return null;
+            }
+
+            return new UpdateInfo(tag, parsedVer, name, body, downloadUrl, fileSize, isPatch, releaseId, publishedAt);
         }
         catch
         {
