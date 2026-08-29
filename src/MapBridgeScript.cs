@@ -1912,6 +1912,9 @@ public static class MapBridgeScript
   const PREVIEW_SIDEBAR_ID = 'side-menu-preview-btn';
   const PREVIEW_CONTAINER_ID = 'logic-preview-studio-container';
 
+  // --- Extensions (вкладка «Расширения» внизу сайдбара) ---
+  const EXTENSIONS_SIDEBAR_ID = 'side-menu-extensions-btn';
+
   function decodeBase64Map(base64) {
     if (!base64 || typeof base64 !== 'string') throw new Error('Пустая строка');
     let clean = base64.trim().replace(/^["']|["']$/g, '');
@@ -2931,7 +2934,10 @@ public static class MapBridgeScript
       const activatePreview = () => {
         sideBar.querySelectorAll('.side-menu-element').forEach(el => el.classList.remove('side-menu-element-selected'));
         previewBtn.classList.add('side-menu-element-selected');
-        
+
+        const extWrap = document.getElementById('logic-extensions-page-container');
+        if (extWrap) extWrap.style.display = 'none';
+
         const content = document.getElementById('menu-page-content');
         if (content) {
           Array.from(content.children).forEach(child => {
@@ -2969,10 +2975,13 @@ public static class MapBridgeScript
           const previewWrap = document.getElementById('logic-preview-page-container');
           if (previewWrap) previewWrap.style.display = 'none';
 
+          const extensionsWrap = document.getElementById('logic-extensions-page-container');
+          if (extensionsWrap) extensionsWrap.style.display = 'none';
+
           const content = document.getElementById('menu-page-content');
           if (content) {
             Array.from(content.children).forEach(child => {
-              if (child.id !== 'logic-preview-page-container') {
+              if (child.id !== 'logic-preview-page-container' && child.id !== 'logic-extensions-page-container') {
                 child.style.display = '';
               }
             });
@@ -2994,6 +3003,173 @@ public static class MapBridgeScript
     });
   }
 
+  // --- Extensions page (внизу сайдбара, иконка «package») ---
+  function renderExtensionsList() {
+    const listDiv = document.getElementById('logic-ext-list');
+    if (!listDiv) return;
+    const entries = Array.isArray(globalThis.__laExtensionsState) ? globalThis.__laExtensionsState : [];
+    if (entries.length === 0) {
+      listDiv.innerHTML = `
+        <div style="border:1px dashed #3b4557;border-radius:8px;padding:18px;text-align:center;color:#8ea0be;font-size:12px;line-height:1.5;">
+          Пока нет ни одного расширения.<br>Нажмите <b style="color:#f0f6fc;">«Добавить расширение»</b> и выберите папку с .js файлами.
+        </div>`;
+      return;
+    }
+    listDiv.innerHTML = entries.map((entry) => {
+      const missing = entry.missing === true;
+      const active = entry.enabled === true && !missing;
+      const badge = missing
+        ? '<span style="background:#5a1d1d;color:#f88;border:1px solid #a33;border-radius:10px;padding:1px 8px;font-size:10.5px;font-weight:600;">Папка не найдена</span>'
+        : active
+          ? '<span style="background:#123018;color:#3fb950;border:1px solid #2ea043;border-radius:10px;padding:1px 8px;font-size:10.5px;font-weight:600;">Активно</span>'
+          : '<span style="background:#22272f;color:#8ea0be;border:1px solid #3b4557;border-radius:10px;padding:1px 8px;font-size:10.5px;font-weight:600;">Выключено</span>';
+      const toggleBtn = missing
+        ? ''
+        : `<button type="button" data-ext-action="${active ? 'disable' : 'enable'}" data-ext-name="${entry.name.replace(/"/g, '&quot;')}" style="background:${active ? '#282f3d' : '#238636'};color:${active ? '#c9d1d9' : '#fff'};border:1px solid ${active ? '#3b4557' : '#2ea043'};border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11.5px;font-weight:600;">${active ? 'Выключить' : 'Включить'}</button>`;
+      const removeBtn = `<button type="button" data-ext-action="remove" data-ext-name="${entry.name.replace(/"/g, '&quot;')}" title="Удалить из списка" style="display:flex;align-items:center;gap:4px;background:#282f3d;color:#f88;border:1px solid #3b4557;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11.5px;">
+          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          Удалить</button>`;
+      return `
+        <div style="display:flex;align-items:center;gap:8px;background:#13161d;border:1px solid #2d3544;border-radius:8px;padding:9px 12px;">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#f0f6fc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${entry.name} ${badge}</div>
+            <div style="font-size:10.5px;color:#6e7d94;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:Consolas,monospace;" title="${entry.path.replace(/"/g, '&quot;')}">${entry.path}</div>
+          </div>
+          ${toggleBtn}
+          ${removeBtn}
+        </div>`;
+    }).join('');
+
+    listDiv.querySelectorAll('button[data-ext-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const action = button.dataset.extAction;
+        const name = button.dataset.extName;
+        if (action === 'enable' || action === 'disable') {
+          post({ type: 'extensions-set-active', name, enabled: action === 'enable' });
+        } else if (action === 'remove') {
+          post({ type: 'extensions-remove', name });
+        }
+      });
+    });
+  }
+
+  function renderInGameExtensionsPage(container) {
+    container.innerHTML = `
+      <div id="logic-extensions-studio" style="display:flex;flex-direction:column;width:100%;height:100%;background:#161a22;color:#f0f6fc;font-family:var(--font,Roboto,-apple-system,sans-serif);box-sizing:border-box;">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:#1f242e;border-bottom:1px solid #2d3544;z-index:2;">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="#58a6ff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path><path d="M12 22V12"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><path d="m7.5 4.27 9 5.15"></path></svg>
+          <span style="font-size:13px;font-weight:600;color:#f0f6fc;">Расширения</span>
+        </div>
+
+        <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;">
+          <div style="background:#13161d;border:1px solid #2d3544;border-radius:8px;padding:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+              <div style="font-size:13px;font-weight:600;color:#f0f6fc;">Мои расширения</div>
+              <button type="button" id="logic-ext-add-btn" style="display:flex;align-items:center;gap:6px;background:#238636;color:#fff;border:1px solid #2ea043;border-radius:6px;padding:7px 14px;cursor:pointer;font-size:12.5px;font-weight:bold;">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+                Добавить расширение
+              </button>
+            </div>
+            <div style="font-size:11.5px;color:#8ea0be;line-height:1.5;margin-top:8px;">
+              Расширение — папка с <code style="color:#58a6ff;">.js</code> файлами, которые запускаются в игре <b>до её кода</b> (моды, автокликеры, свои интерфейсы).
+              Одновременно активно одно расширение: включение другого выключит текущее, страница игры перезагрузится.
+            </div>
+            <div id="logic-ext-add-status" style="font-size:11.5px;color:#8ea0be;margin-top:6px;display:none;"></div>
+          </div>
+
+          <div id="logic-ext-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+      </div>
+    `;
+
+    const addBtn = document.getElementById('logic-ext-add-btn');
+    if (addBtn) {
+      addBtn.addEventListener('click', () => {
+        const status = document.getElementById('logic-ext-add-status');
+        if (status) {
+          status.style.display = 'block';
+          status.style.color = '#8ea0be';
+          status.textContent = 'Открываю проводник… выберите папку расширения.';
+        }
+        post({ type: 'extensions-add' });
+      });
+    }
+
+    renderExtensionsList();
+    post({ type: 'extensions-list-request' });
+  }
+
+  function patchExtensionsSideBar() {
+    const sideBar = document.getElementById('menu-page-side-bar');
+    if (!sideBar) return;
+
+    if (!document.getElementById(EXTENSIONS_SIDEBAR_ID)) {
+      const extBtn = document.createElement('div');
+      extBtn.id = EXTENSIONS_SIDEBAR_ID;
+      extBtn.className = 'side-menu-element';
+      extBtn.setAttribute('role', 'button');
+      extBtn.setAttribute('tabindex', '0');
+      extBtn.style.cursor = 'pointer';
+
+      const icon = document.createElement('div');
+      icon.className = 'side-menu-icon';
+      icon.style.display = 'flex';
+      icon.style.alignItems = 'center';
+      icon.style.justifyContent = 'center';
+      icon.innerHTML = `<svg viewBox="0 0 24 24" width="32" height="32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto;pointer-events:none;"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path><path d="M12 22V12"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><path d="m7.5 4.27 9 5.15"></path></svg>`;
+
+      const title = document.createElement('div');
+      title.className = 'side-menu-title';
+      title.textContent = 'Расширения';
+
+      extBtn.append(icon, title);
+      // пользователь просил: вкладка в самом низу списка
+      sideBar.appendChild(extBtn);
+
+      const activateExtensions = () => {
+        sideBar.querySelectorAll('.side-menu-element').forEach(el => el.classList.remove('side-menu-element-selected'));
+        extBtn.classList.add('side-menu-element-selected');
+
+        const previewWrap = document.getElementById('logic-preview-page-container');
+        if (previewWrap) previewWrap.style.display = 'none';
+
+        const content = document.getElementById('menu-page-content');
+        if (content) {
+          Array.from(content.children).forEach(child => {
+            if (child.id !== 'logic-extensions-page-container') {
+              child.style.display = 'none';
+            }
+          });
+          let extWrap = document.getElementById('logic-extensions-page-container');
+          if (!extWrap) {
+            extWrap = document.createElement('div');
+            extWrap.id = 'logic-extensions-page-container';
+            extWrap.style.cssText = 'display:flex;width:100%;height:100%;';
+            content.appendChild(extWrap);
+            renderInGameExtensionsPage(extWrap);
+          } else {
+            extWrap.style.display = 'flex';
+            renderExtensionsList();
+            post({ type: 'extensions-list-request' });
+          }
+        }
+      };
+
+      extBtn.addEventListener('click', activateExtensions);
+      extBtn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateExtensions(); }
+      });
+    }
+
+    if (!globalThis.__laExtensionsStateHooked) {
+      globalThis.__laExtensionsStateHooked = true;
+      globalThis.addEventListener('la-extensions-state', (event) => {
+        globalThis.__laExtensionsState = Array.isArray(event.detail) ? event.detail : [];
+        renderExtensionsList();
+      });
+    }
+  }
+
   function syncUi() {
     installGameFocusRecovery();
     installDarkArrowCellShaderHook();
@@ -3010,6 +3186,7 @@ public static class MapBridgeScript
     addExportButton();
     patchMapMenuPanel();
     patchMenuPageSideBar();
+    patchExtensionsSideBar();
     tryPendingLobbyImport();
   }
 
@@ -3048,6 +3225,17 @@ public static class MapBridgeScript
   patchDarkDrawOrder();
   patchDarkRenderClear();
   startObserver();
+
+  // Активное расширение лаунчера: синхронно запрашиваем у хоста (перехват /__la_extension)
+  // и исполняем ДО скриптов игры — пользовательские моды видят весь игровой контекст.
+  try {
+    const __laXhr = new XMLHttpRequest();
+    __laXhr.open('GET', '/__la_extension', false);
+    __laXhr.send(null);
+    if (__laXhr.status === 200 && __laXhr.responseText) {
+      (new Function(__laXhr.responseText))();
+    }
+  } catch (__laExtensionError) { }
 })();
 """;
 }

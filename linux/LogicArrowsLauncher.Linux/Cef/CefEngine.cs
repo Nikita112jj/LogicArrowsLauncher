@@ -75,7 +75,10 @@ public sealed class CefEngine : IDisposable
         {
             BrowserSubprocessPath = Environment.ProcessPath,
             CachePath = Platform.LinuxPaths.ProfileDirectory,
-            RootCachePath = Platform.LinuxPaths.CefCacheDirectory,
+            // CEF требует: cache_path = root_cache_path ИЛИ его подкаталог.
+            // Раньше RootCachePath указывал на соседнюю папку cef/ — кэш отбрасывался
+            // в in-memory и карты терялись между запусками.
+            RootCachePath = Platform.LinuxPaths.DataRoot,
             MultiThreadedMessageLoop = false, // Linux не поддерживает многопоточный цикл сообщений
             ExternalMessagePump = true,       // качаем DoMessageLoopWork из DispatcherTimer
             WindowlessRenderingEnabled = true,
@@ -127,6 +130,12 @@ public sealed class CefEngine : IDisposable
     public void SetFocus(bool focused)
     {
         browser?.Host.SetFocus(focused);
+    }
+
+    /// <summary>Перезагрузка страницы игры (например, после смены активного расширения).</summary>
+    public void Reload()
+    {
+        browser?.Reload();
     }
 
     // ——— Ввод ———

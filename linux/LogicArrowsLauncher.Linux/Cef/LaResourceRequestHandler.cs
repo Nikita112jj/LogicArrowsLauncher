@@ -23,11 +23,24 @@ public sealed class LaResourceRequestHandler : CefResourceRequestHandler
 
     public AssetSynchronizer Synchronizer { get; set; }
 
+    /// <summary>Расширения пользователя; задаётся после создания менеджера в MainWindow.</summary>
+    public ExtensionManager? Extensions { get; set; }
+
     protected override CefResourceHandler? GetResourceHandler(CefBrowser browser, CefFrame frame, CefRequest request)
     {
         if (!Uri.TryCreate(request.Url, UriKind.Absolute, out var uri)) return null;
         if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) return null;
         if (!string.Equals(uri.Host, "logic-arrows.io", StringComparison.OrdinalIgnoreCase)) return null;
+
+        // Активное расширение пользователя (синхронный XHR моста до скриптов игры).
+        if (uri.AbsolutePath.Equals("/__la_extension", StringComparison.OrdinalIgnoreCase))
+        {
+            var extensionCode = Extensions?.ReadActiveScripts();
+            return string.IsNullOrWhiteSpace(extensionCode)
+                ? LaResourceHandler.NotFound()
+                : LaResourceHandler.Ok(Encoding.UTF8.GetBytes(extensionCode), "application/javascript",
+                    "Cache-Control: no-store");
+        }
 
         if (uri.AbsolutePath.Equals(BridgePath, StringComparison.OrdinalIgnoreCase))
         {

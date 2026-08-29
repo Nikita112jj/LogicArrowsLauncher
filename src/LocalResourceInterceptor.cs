@@ -17,6 +17,9 @@ public sealed class LocalResourceInterceptor
         synchronizer = nextSynchronizer;
     }
 
+    /// <summary>Расширения пользователя; задаётся после создания менеджера в LauncherForm.</summary>
+    public ExtensionManager? Extensions { get; set; }
+
     public void Attach(CoreWebView2 webView)
     {
         webView.AddWebResourceRequestedFilter(
@@ -42,6 +45,21 @@ public sealed class LocalResourceInterceptor
                 new MemoryStream(worker, writable: false),
                 200,
                 "OK",
+                "Content-Type: application/javascript; charset=utf-8\r\nCache-Control: no-store\r\n");
+            return;
+        }
+
+        // Активное расширение пользователя (синхронный XHR моста до скриптов игры).
+        if (uri.AbsolutePath.Equals("/__la_extension", StringComparison.OrdinalIgnoreCase))
+        {
+            var extensionCode = Extensions?.ReadActiveScripts();
+            var hasCode = !string.IsNullOrWhiteSpace(extensionCode);
+            args.Response = webView.Environment.CreateWebResourceResponse(
+                new MemoryStream(
+                    hasCode ? Encoding.UTF8.GetBytes(extensionCode) : Array.Empty<byte>(),
+                    writable: false),
+                hasCode ? 200 : 404,
+                hasCode ? "OK" : "Not Found",
                 "Content-Type: application/javascript; charset=utf-8\r\nCache-Control: no-store\r\n");
             return;
         }

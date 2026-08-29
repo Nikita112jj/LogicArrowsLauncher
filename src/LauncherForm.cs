@@ -14,7 +14,7 @@ public sealed class LauncherForm : Form
     private const int WM_SETFOCUS = 0x0007;
     private const int WM_ACTIVATEAPP = 0x001C;
     private const string RepositoryUrl = "https://github.com/Nikita112jj/LogicArrowsLauncher";
-    private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.4.5";
+    private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.4.6";
 
     // Header Controls
     private readonly Panel header = new();
@@ -47,6 +47,7 @@ public sealed class LauncherForm : Form
     // State & Services
     private AssetSynchronizer? synchronizer;
     private LocalResourceInterceptor? interceptor;
+    private ExtensionManager? extensions;
     private CoreWebView2Controller? webViewController;
     private bool initialized;
     private bool isBusy;
@@ -518,6 +519,11 @@ public sealed class LauncherForm : Form
             var updateStore = new UpdateStore(updatesDirectory);
             synchronizer = new AssetSynchronizer(updateStore);
             interceptor = new LocalResourceInterceptor(synchronizer);
+            extensions = new ExtensionManager(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "LogicArrowsLauncher",
+                "extensions.json"));
+            interceptor.Extensions = extensions;
 
             var progress = new Progress<SyncProgress>(ReportProgress);
             var summary = await synchronizer.SyncAsync(progress, CancellationToken.None);
@@ -670,6 +676,36 @@ public sealed class LauncherForm : Form
                 {
                     OpenMapsFolderInExplorer();
                 }
+                else if (typeStr == "extensions-add")
+                {
+                    if (!isBusy) _ = HandleExtensionsAddAsync();
+                }
+                else if (typeStr == "extensions-set-active")
+                {
+                    var name = root.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
+                    var enabled = root.TryGetProperty("enabled", out var enabledEl) && enabledEl.GetBoolean();
+                    if (!string.IsNullOrWhiteSpace(name))
+                    {
+                        extensions?.SetEnabled(name, enabled);
+                        _ = SendExtensionsStateAsync();
+                        if (enabled) webView.CoreWebView2.Reload();
+                    }
+                }
+                else if (typeStr == "extensions-remove")
+                {
+                    var name = root.TryGetProperty("name", out var removeEl) ? removeEl.GetString() : null;
+                    if (!string.IsNullOrWhiteSpace(name))
+                    {
+                        var wasActive = extensions?.GetActive()?.Name == name;
+                        extensions?.Remove(name);
+                        _ = SendExtensionsStateAsync();
+                        if (wasActive) webView.CoreWebView2.Reload();
+                    }
+                }
+                else if (typeStr == "extensions-list-request")
+                {
+                    _ = SendExtensionsStateAsync();
+                }
                 else if (typeStr == "bridge-error")
                 {
                     var message = root.TryGetProperty("message", out var val) ? val.GetString() : null;
@@ -681,6 +717,39 @@ public sealed class LauncherForm : Form
             }
         }
         catch { }
+    }
+
+    private async Task HandleExtensionsAddAsync()
+    {
+        try
+        {
+            using var dialog = new FolderBrowserDialog
+            {
+                Description = "Выберите папку расширения (в ней должны быть .js файлы)",
+                ShowNewFolderButton = false,
+                UseDescriptionForTitle = true,
+            };
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            extensions?.Register(dialog.SelectedPath);
+            await SendExtensionsStateAsync();
+            webView.CoreWebView2.Reload();
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                $"Не удалось добавить расширение: {exception.Message}",
+                "Расширения",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+    }
+
+    private async Task SendExtensionsStateAsync()
+    {
+        if (webView.CoreWebView2 is null) return;
+        var json = JsonSerializer.Serialize(extensions?.Entries ?? Array.Empty<ExtensionEntry>());
+        await webView.CoreWebView2.ExecuteScriptAsync(
+            $"window.dispatchEvent(new CustomEvent('la-extensions-state', {{detail: {json}}}));");
     }
 
     private async Task ImportFromLobbyAsync(string text)

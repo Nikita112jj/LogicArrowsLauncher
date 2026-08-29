@@ -6,9 +6,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>LogicArrowsLauncher</AssemblyName>
-    <Version>1.4.5</Version>
-    <VersionPrefix>1.4.5</VersionPrefix>
-    <AssemblyInformationalVersion>1.4.5</AssemblyInformationalVersion>
+    <Version>1.4.6</Version>
+    <VersionPrefix>1.4.6</VersionPrefix>
+    <AssemblyInformationalVersion>1.4.6</AssemblyInformationalVersion>
     <RootNamespace>LogicArrowsLauncher.Linux</RootNamespace>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">linux-x64</RuntimeIdentifier>
@@ -31,6 +31,7 @@
   <ItemGroup>
     <Compile Include="..\..\src\AssetSynchronizer.cs" Link="Shared\AssetSynchronizer.cs" />
     <Compile Include="..\..\src\CacheModels.cs" Link="Shared\CacheModels.cs" />
+    <Compile Include="..\..\src\ExtensionManager.cs" Link="Shared\ExtensionManager.cs" />
     <Compile Include="..\..\src\LauncherUpdater.cs" Link="Shared\LauncherUpdater.cs" />
     <Compile Include="..\..\src\MapBridgeScript.cs" Link="Shared\MapBridgeScript.cs" />
     <Compile Include="..\..\src\MapData.cs" Link="Shared\MapData.cs" />

@@ -11,14 +11,14 @@
 
 <p align="center">
   <a href="https://github.com/Nikita112jj/LogicArrowsLauncher/releases/latest"><img src="https://img.shields.io/badge/Скачать-актуальный%20релиз-2f8f4e?style=for-the-badge" alt="Скачать последний релиз"></a>
-  <a href="https://github.com/Nikita112jj/LogicArrowsLauncher/releases/latest"><img src="https://img.shields.io/badge/Версия-1.4.5-7d5cff?style=for-the-badge" alt="Версия 1.4.5"></a>
+  <a href="https://github.com/Nikita112jj/LogicArrowsLauncher/releases/latest"><img src="https://img.shields.io/badge/Версия-1.4.6-7d5cff?style=for-the-badge" alt="Версия 1.4.5"></a>
   <img src="https://img.shields.io/badge/Windows-x64-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows x64">
   <img src="https://img.shields.io/badge/.NET-8-512BD4?style=for-the-badge&logo=dotnet&logoColor=white" alt=".NET 8">
 </p>
 
 > Один автономный EXE для Windows. Первый запуск скачивает ресурсы игры, следующие запуски быстро проверяют версию и используют сохранённую копию.
 
-> **О версии:** бейдж выше показывает актуальный релиз (сейчас — **v1.4.5**). Лаунчер сам проверяет свежий релиз на GitHub при запуске и обновляется одной кнопкой — перекачивать установщик вручную не нужно. История изменений — в [CHANGELOG.md](CHANGELOG.md).
+> **О версии:** бейдж выше показывает актуальный релиз (сейчас — **v1.4.6**). Лаунчер сам проверяет свежий релиз на GitHub при запуске и обновляется одной кнопкой — перекачивать установщик вручную не нужно. История изменений — в [CHANGELOG.md](CHANGELOG.md).
 
 ## Скачать под свою систему
 

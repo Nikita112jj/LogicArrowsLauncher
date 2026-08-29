@@ -53,6 +53,7 @@ public sealed class MainWindow : Window
     private readonly Panel footerPanel;
 
     private AssetSynchronizer? synchronizer;
+    private ExtensionManager? extensions;
     private bool isBusy;
     private bool isGameFullscreen;
     private bool exportInProgress;
@@ -278,7 +279,7 @@ public sealed class MainWindow : Window
 
         var versionText = new TextBlock
         {
-            Text = "v1.4.5 (Linux-порт)",
+            Text = "v1.4.6 (Linux-порт)",
             FontSize = 11.5,
             Foreground = new SolidColorBrush(LaTheme.TextSecondary),
             VerticalAlignment = VerticalAlignment.Center,
@@ -324,6 +325,7 @@ public sealed class MainWindow : Window
         {
             var updateStore = new UpdateStore(LinuxPaths.UpdatesDirectory);
             synchronizer = new AssetSynchronizer(updateStore);
+            extensions = new ExtensionManager(Path.Combine(LinuxPaths.DataRoot, "extensions.json"));
 
             var progress = new Progress<SyncProgress>(ReportProgress);
             var summary = await synchronizer.SyncAsync(progress, CancellationToken.None);
@@ -340,6 +342,7 @@ public sealed class MainWindow : Window
             loadingCount.Text = "100%";
 
             engine.BindResourceHandler(synchronizer, OnBridgeMessage);
+            engine.ResourceRequestHandler.Extensions = extensions;
             engine.MainFrameLoadEnd += OnGamePageLoadEnd;
             engine.Navigate(ResourceCatalog.Origin + "/");
             await engine.GamePageReady.Task;
@@ -447,6 +450,36 @@ public sealed class MainWindow : Window
             else if (typeStr == "open-maps-folder")
             {
                 OpenMapsFolder();
+            }
+            else if (typeStr == "extensions-add")
+            {
+                if (!isBusy) _ = HandleExtensionsAddAsync();
+            }
+            else if (typeStr == "extensions-set-active")
+            {
+                var name = root.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
+                var enabled = root.TryGetProperty("enabled", out var enabledEl) && enabledEl.GetBoolean();
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    extensions?.SetEnabled(name, enabled);
+                    _ = SendExtensionsStateAsync();
+                    if (enabled) engine.Reload();
+                }
+            }
+            else if (typeStr == "extensions-remove")
+            {
+                var name = root.TryGetProperty("name", out var removeEl) ? removeEl.GetString() : null;
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    var wasActive = extensions?.GetActive()?.Name == name;
+                    extensions?.Remove(name);
+                    _ = SendExtensionsStateAsync();
+                    if (wasActive) engine.Reload();
+                }
+            }
+            else if (typeStr == "extensions-list-request")
+            {
+                _ = SendExtensionsStateAsync();
             }
             else if (typeStr == "bridge-error")
             {
@@ -581,6 +614,35 @@ public sealed class MainWindow : Window
             OpenExternal(LinuxPaths.MapsDirectory);
         }
         catch { }
+    }
+
+    private async Task HandleExtensionsAddAsync()
+    {
+        try
+        {
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Выберите папку расширения (в ней должны быть .js файлы)",
+                AllowMultiple = false,
+            });
+            var path = folders.FirstOrDefault()?.TryGetLocalPath();
+            if (string.IsNullOrWhiteSpace(path)) return;
+            extensions?.Register(path);
+            await SendExtensionsStateAsync();
+            engine.Reload();
+        }
+        catch (Exception exception)
+        {
+            headerSubtitle.Text = "Не удалось добавить расширение: " + exception.Message;
+        }
+    }
+
+    private async Task SendExtensionsStateAsync()
+    {
+        if (!engine.IsReady) return;
+        var json = JsonSerializer.Serialize(extensions?.Entries ?? Array.Empty<ExtensionEntry>());
+        await engine.ExecuteScriptAsync(
+            $"window.dispatchEvent(new CustomEvent('la-extensions-state', {{detail: {json}}}));");
     }
 
     // ——— Обновления ———
