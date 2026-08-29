@@ -49,6 +49,18 @@ public sealed class LocalResourceInterceptor
             return;
         }
 
+        // Состояние встроенного расширения: '1' = активно (нет включённых сторонних).
+        if (uri.AbsolutePath.Equals("/__la_builtin_state", StringComparison.OrdinalIgnoreCase))
+        {
+            var builtInActive = Extensions is null || Extensions.IsBuiltInActive;
+            args.Response = webView.Environment.CreateWebResourceResponse(
+                new MemoryStream(builtInActive ? "1"u8.ToArray() : "0"u8.ToArray(), writable: false),
+                200,
+                "OK",
+                "Content-Type: text/plain; charset=utf-8\r\nCache-Control: no-store\r\n");
+            return;
+        }
+
         // Активное расширение пользователя (синхронный XHR моста до скриптов игры).
         if (uri.AbsolutePath.Equals("/__la_extension", StringComparison.OrdinalIgnoreCase))
         {

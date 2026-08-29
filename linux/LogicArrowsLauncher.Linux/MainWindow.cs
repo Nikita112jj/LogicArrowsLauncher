@@ -279,7 +279,7 @@ public sealed class MainWindow : Window
 
         var versionText = new TextBlock
         {
-            Text = "v1.4.7 (Linux-порт)",
+            Text = "v1.4.8 (Linux-порт)",
             FontSize = 11.5,
             Foreground = new SolidColorBrush(LaTheme.TextSecondary),
             VerticalAlignment = VerticalAlignment.Center,
@@ -461,9 +461,11 @@ public sealed class MainWindow : Window
                 var enabled = root.TryGetProperty("enabled", out var enabledEl) && enabledEl.GetBoolean();
                 if (!string.IsNullOrWhiteSpace(name))
                 {
-                    extensions?.SetEnabled(name, enabled);
+                    if (enabled && name == ExtensionManager.BuiltInName) extensions?.ActivateBuiltIn();
+                    else extensions?.SetEnabled(name, enabled);
                     _ = SendExtensionsStateAsync();
-                    if (enabled) engine.Reload();
+                    // Перезагружаем всегда: выключение тоже меняет внедрённый код расширения.
+                    engine.Reload();
                 }
             }
             else if (typeStr == "extensions-remove")
@@ -640,9 +642,13 @@ public sealed class MainWindow : Window
     private async Task SendExtensionsStateAsync()
     {
         if (!engine.IsReady) return;
-        var json = JsonSerializer.Serialize(extensions?.Entries ?? Array.Empty<ExtensionEntry>());
+        var payload = JsonSerializer.Serialize(new
+        {
+            builtInActive = extensions?.IsBuiltInActive ?? true,
+            entries = extensions?.Entries ?? Array.Empty<ExtensionEntry>(),
+        });
         await engine.ExecuteScriptAsync(
-            $"window.dispatchEvent(new CustomEvent('la-extensions-state', {{detail: {json}}}));");
+            $"window.dispatchEvent(new CustomEvent('la-extensions-state', {{detail: {payload}}}));");
     }
 
     // ——— Обновления ———

@@ -3009,15 +3009,27 @@ public static class MapBridgeScript
   function renderExtensionsList() {
     const listDiv = document.getElementById('logic-ext-list');
     if (!listDiv) return;
-    const entries = Array.isArray(globalThis.__laExtensionsState) ? globalThis.__laExtensionsState : [];
+    const state = globalThis.__laExtensionsState && typeof globalThis.__laExtensionsState === 'object' ? globalThis.__laExtensionsState : {};
+    const entries = Array.isArray(state.entries) ? state.entries : [];
+    const builtInActive = state.builtInActive === true;
+    const builtInCard = `
+      <div style="display:flex;align-items:center;gap:8px;background:#13161d;border:1px solid ${builtInActive ? '#2ea043' : '#2d3544'};border-radius:8px;padding:9px 12px;">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#f0f6fc;">Встроенное расширение лаунчера
+            <span style="background:${builtInActive ? '#123018' : '#22272f'};color:${builtInActive ? '#3fb950' : '#8ea0be'};border:1px solid ${builtInActive ? '#2ea043' : '#3b4557'};border-radius:10px;padding:1px 8px;font-size:10.5px;font-weight:600;">${builtInActive ? 'Активно' : 'Выключено'}</span>
+          </div>
+          <div style="font-size:10.5px;color:#6e7d94;line-height:1.4;">Тёмная тема, оптимизация графики, «Превью схем», экспорт карт. Активно, когда ни одно стороннее расширение не включено.</div>
+        </div>
+        ${builtInActive ? '' : `<button type="button" data-ext-action="builtin" style="background:#238636;color:#fff;border:1px solid #2ea043;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11.5px;font-weight:600;">Включить</button>`}
+      </div>`;
     if (entries.length === 0) {
-      listDiv.innerHTML = `
-        <div style="border:1px dashed #3b4557;border-radius:8px;padding:18px;text-align:center;color:#8ea0be;font-size:12px;line-height:1.5;">
-          Пока нет ни одного расширения.<br>Нажмите <b style="color:#f0f6fc;">«Добавить расширение»</b> и выберите папку с .js файлами.
+      listDiv.innerHTML = builtInCard + `
+        <div style="border:1px dashed #3b4557;border-radius:8px;padding:14px;text-align:center;color:#8ea0be;font-size:12px;line-height:1.5;">
+          Сторонних расширений пока нет.<br>Нажмите <b style="color:#f0f6fc;">«Добавить расширение»</b> и выберите папку с .js файлами.
         </div>`;
       return;
     }
-    listDiv.innerHTML = entries.map((entry) => {
+    listDiv.innerHTML = builtInCard + entries.map((entry) => {
       const missing = entry.missing === true;
       const active = entry.enabled === true && !missing;
       const badge = missing
@@ -3046,7 +3058,9 @@ public static class MapBridgeScript
       button.addEventListener('click', () => {
         const action = button.dataset.extAction;
         const name = button.dataset.extName;
-        if (action === 'enable' || action === 'disable') {
+        if (action === 'builtin') {
+          post({ type: 'extensions-set-active', name: '__builtin__', enabled: true });
+        } else if (action === 'enable' || action === 'disable') {
           post({ type: 'extensions-set-active', name, enabled: action === 'enable' });
         } else if (action === 'remove') {
           post({ type: 'extensions-remove', name });
@@ -3174,20 +3188,24 @@ public static class MapBridgeScript
 
   function syncUi() {
     installGameFocusRecovery();
-    installDarkArrowCellShaderHook();
-    patchDarkBackgroundFiltering();
-    patchDarkScreenClear();
-    patchDarkDrawOrder();
-    patchDarkRenderClear();
-    ensureThemeStyle();
-    applyTheme();
-    patchGamePerformance();
-    ensureSettingsTheme();
-    upgradeSettingsDropdowns();
-    addLobbyImportCard();
-    addExportButton();
-    patchMapMenuPanel();
-    patchMenuPageSideBar();
+    // Встроенное расширение (тёмная тема, оптимизация, превью) — только когда включено:
+    // оно выключено, пока активно стороннее расширение, чтобы не конфликтовать с ним.
+    if (globalThis.__laBuiltinEnabled !== false) {
+      installDarkArrowCellShaderHook();
+      patchDarkBackgroundFiltering();
+      patchDarkScreenClear();
+      patchDarkDrawOrder();
+      patchDarkRenderClear();
+      ensureThemeStyle();
+      applyTheme();
+      patchGamePerformance();
+      ensureSettingsTheme();
+      upgradeSettingsDropdowns();
+      addLobbyImportCard();
+      addExportButton();
+      patchMapMenuPanel();
+      patchMenuPageSideBar();
+    }
     patchExtensionsSideBar();
     tryPendingLobbyImport();
   }
@@ -3221,11 +3239,23 @@ public static class MapBridgeScript
     scheduleSyncUi();
   }
 
-  installDarkArrowCellShaderHook();
-  patchDarkBackgroundFiltering();
-  patchDarkScreenClear();
-  patchDarkDrawOrder();
-  patchDarkRenderClear();
+  // Состояние встроенного расширения (синхронно, до любых патчей): '1' = включено.
+  try {
+    const __laBuiltinXhr = new XMLHttpRequest();
+    __laBuiltinXhr.open('GET', '/__la_builtin_state', false);
+    __laBuiltinXhr.send(null);
+    if (__laBuiltinXhr.status === 200) {
+      globalThis.__laBuiltinEnabled = __laBuiltinXhr.responseText.trim() === '1';
+    }
+  } catch (__laBuiltinError) { }
+
+  if (globalThis.__laBuiltinEnabled !== false) {
+    installDarkArrowCellShaderHook();
+    patchDarkBackgroundFiltering();
+    patchDarkScreenClear();
+    patchDarkDrawOrder();
+    patchDarkRenderClear();
+  }
   startObserver();
 
   // Активное расширение лаунчера: синхронно запрашиваем у хоста (перехват /__la_extension)

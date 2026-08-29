@@ -30,6 +30,22 @@ public sealed class ExtensionManager
 
     public ExtensionEntry? GetActive() => entries.FirstOrDefault(e => e.Enabled && e.Missing != true);
 
+    /// <summary>Имя виртуальной записи «встроенное расширение лаунчера» в списке.</summary>
+    public const string BuiltInName = "__builtin__";
+
+    /// <summary>Встроенное расширение активно тогда, когда ни одно пользовательское не включено.</summary>
+    public bool IsBuiltInActive => !entries.Any(e => e.Enabled);
+
+    /// <summary>Вернуть встроенное расширение: все пользовательские выключаются.</summary>
+    public void ActivateBuiltIn()
+    {
+        foreach (var entry in entries)
+        {
+            entry.Enabled = false;
+        }
+        Save();
+    }
+
     /// <summary>Код активного расширения: все .js из папки в алфавитном порядке.</summary>
     public string? ReadActiveScripts()
     {

@@ -32,6 +32,14 @@ public sealed class LaResourceRequestHandler : CefResourceRequestHandler
         if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) return null;
         if (!string.Equals(uri.Host, "logic-arrows.io", StringComparison.OrdinalIgnoreCase)) return null;
 
+        // Состояние встроенного расширения: '1' = активно (нет включённых сторонних).
+        if (uri.AbsolutePath.Equals("/__la_builtin_state", StringComparison.OrdinalIgnoreCase))
+        {
+            var builtInActive = Extensions is null || Extensions.IsBuiltInActive;
+            return LaResourceHandler.Ok(builtInActive ? "1"u8.ToArray() : "0"u8.ToArray(), "text/plain",
+                "Cache-Control: no-store");
+        }
+
         // Активное расширение пользователя (синхронный XHR моста до скриптов игры).
         if (uri.AbsolutePath.Equals("/__la_extension", StringComparison.OrdinalIgnoreCase))
         {

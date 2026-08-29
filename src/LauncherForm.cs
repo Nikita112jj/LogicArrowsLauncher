@@ -14,7 +14,7 @@ public sealed class LauncherForm : Form
     private const int WM_SETFOCUS = 0x0007;
     private const int WM_ACTIVATEAPP = 0x001C;
     private const string RepositoryUrl = "https://github.com/Nikita112jj/LogicArrowsLauncher";
-    private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.4.7";
+    private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.4.8";
 
     // Header Controls
     private readonly Panel header = new();
@@ -686,9 +686,12 @@ public sealed class LauncherForm : Form
                     var enabled = root.TryGetProperty("enabled", out var enabledEl) && enabledEl.GetBoolean();
                     if (!string.IsNullOrWhiteSpace(name))
                     {
-                        extensions?.SetEnabled(name, enabled);
+                        if (enabled && name == ExtensionManager.BuiltInName) extensions?.ActivateBuiltIn();
+                        else extensions?.SetEnabled(name, enabled);
                         _ = SendExtensionsStateAsync();
-                        if (enabled) webView.CoreWebView2.Reload();
+                        // Перезагружаем всегда: выключение тоже меняет внедрённый в страницу код,
+                        // без перезагрузки расширение продолжает работать до следующего захода.
+                        webView.CoreWebView2.Reload();
                     }
                 }
                 else if (typeStr == "extensions-remove")
@@ -747,9 +750,13 @@ public sealed class LauncherForm : Form
     private async Task SendExtensionsStateAsync()
     {
         if (webView.CoreWebView2 is null) return;
-        var json = JsonSerializer.Serialize(extensions?.Entries ?? Array.Empty<ExtensionEntry>());
+        var payload = JsonSerializer.Serialize(new
+        {
+            builtInActive = extensions?.IsBuiltInActive ?? true,
+            entries = extensions?.Entries ?? Array.Empty<ExtensionEntry>(),
+        });
         await webView.CoreWebView2.ExecuteScriptAsync(
-            $"window.dispatchEvent(new CustomEvent('la-extensions-state', {{detail: {json}}}));");
+            $"window.dispatchEvent(new CustomEvent('la-extensions-state', {{detail: {payload}}}));");
     }
 
     private async Task ImportFromLobbyAsync(string text)
