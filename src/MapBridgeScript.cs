@@ -3009,7 +3009,14 @@ public static class MapBridgeScript
   function renderExtensionsList() {
     const listDiv = document.getElementById('logic-ext-list');
     if (!listDiv) return;
+    const stateReceived = globalThis.__laExtensionsState !== undefined;
     const state = globalThis.__laExtensionsState && typeof globalThis.__laExtensionsState === 'object' ? globalThis.__laExtensionsState : {};
+    const diagDiv = document.getElementById('logic-ext-diag');
+    if (diagDiv) {
+      diagDiv.textContent = stateReceived
+        ? `Диагностика: лаунчер ${state.version || '?'} • состояние получено • встроенное ${state.builtInActive ? 'включено' : 'выключено'} • расширений: ${Array.isArray(state.entries) ? state.entries.length : '?'}`
+        : 'Диагностика: состояние от лаунчера ещё не получено — переоткройте вкладку.';
+    }
     const entries = Array.isArray(state.entries) ? state.entries : [];
     const builtInActive = state.builtInActive === true;
     const builtInCard = `
@@ -3094,6 +3101,7 @@ public static class MapBridgeScript
           </div>
 
           <div id="logic-ext-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+          <div id="logic-ext-diag" style="font-size:10.5px;color:#6e7d94;line-height:1.4;font-family:Consolas,monospace;"></div>
         </div>
       </div>
     `;
@@ -3132,7 +3140,8 @@ public static class MapBridgeScript
       icon.style.display = 'flex';
       icon.style.alignItems = 'center';
       icon.style.justifyContent = 'center';
-      icon.innerHTML = `<svg viewBox="0 0 24 24" width="32" height="32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto;pointer-events:none;"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path><path d="M12 22V12"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><path d="m7.5 4.27 9 5.15"></path></svg>`;
+      icon.style.color = 'inherit';
+      icon.innerHTML = `<svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto;pointer-events:none;"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path><path d="M12 22V12"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><path d="m7.5 4.27 9 5.15"></path></svg>`;
 
       const title = document.createElement('div');
       title.className = 'side-menu-title';
@@ -3180,7 +3189,11 @@ public static class MapBridgeScript
     if (!globalThis.__laExtensionsStateHooked) {
       globalThis.__laExtensionsStateHooked = true;
       globalThis.addEventListener('la-extensions-state', (event) => {
-        globalThis.__laExtensionsState = Array.isArray(event.detail) ? event.detail : [];
+        // Формат состояния: {version, builtInActive, entries}; массив — совместимость со старыми сборками.
+        const detail = event?.detail;
+        globalThis.__laExtensionsState = detail && typeof detail === 'object'
+          ? (Array.isArray(detail) ? { entries: detail } : detail)
+          : {};
         renderExtensionsList();
       });
     }

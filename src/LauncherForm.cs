@@ -14,7 +14,7 @@ public sealed class LauncherForm : Form
     private const int WM_SETFOCUS = 0x0007;
     private const int WM_ACTIVATEAPP = 0x001C;
     private const string RepositoryUrl = "https://github.com/Nikita112jj/LogicArrowsLauncher";
-    private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.4.8";
+    private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.4.9";
 
     // Header Controls
     private readonly Panel header = new();
@@ -525,6 +525,8 @@ public sealed class LauncherForm : Form
                 "extensions.json"));
             interceptor.Extensions = extensions;
 
+            CheckFailedUpdateLog();
+
             var progress = new Progress<SyncProgress>(ReportProgress);
             var summary = await synchronizer.SyncAsync(progress, CancellationToken.None);
 
@@ -752,6 +754,7 @@ public sealed class LauncherForm : Form
         if (webView.CoreWebView2 is null) return;
         var payload = JsonSerializer.Serialize(new
         {
+            version = LauncherUpdater.CurrentVersion.ToString(),
             builtInActive = extensions?.IsBuiltInActive ?? true,
             entries = extensions?.Entries ?? Array.Empty<ExtensionEntry>(),
         });
@@ -972,6 +975,25 @@ public sealed class LauncherForm : Form
         errorLabel.Visible = true;
         playButton.Visible = false;
         CenterLoadingCard();
+    }
+
+    /// <summary>Скрипт самообновления не смог заменить exe — объясняем пользователю при старте.</summary>
+    private void CheckFailedUpdateLog()
+    {
+        try
+        {
+            if (!File.Exists(LauncherUpdater.FailedUpdateLogPath)) return;
+            File.Delete(LauncherUpdater.FailedUpdateLogPath);
+            MessageBox.Show(
+                "Автоматическое обновление не удалось — файл лаунчера был занят " +
+                "(например, антивирусом или второй копией лаунчера).\n\n" +
+                $"Сейчас запущена версия из:\n{Environment.ProcessPath}\n\n" +
+                "Скачайте свежую версию вручную со страницы релизов и запустите её из той же папки.",
+                "Обновление лаунчера",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+        catch { }
     }
 
     private static Image? LoadEmbeddedImage(string resourceName)

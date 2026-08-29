@@ -158,27 +158,58 @@ public static class LauncherUpdater
     }
 
 #if !LINUX_PORT
+    /// <summary>Журнал неудачного самообновления: LauncherForm показывает его при следующем старте.</summary>
+    public static string FailedUpdateLogPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "LogicArrowsLauncher",
+        "update-failed.log");
+
     public static void ApplyUpdateAndRestart(string tempExePath)
     {
-        var currentExe = Application.ExecutablePath;
+        var currentExe = Environment.ProcessPath ?? Application.ExecutablePath;
+        var currentDir = Path.GetDirectoryName(currentExe) ?? ".";
+        var currentName = Path.GetFileName(currentExe);
+        var backupName = Path.ChangeExtension(currentName, ".old.exe");
+        var backupPath = Path.Combine(currentDir, backupName);
         var pid = Process.GetCurrentProcess().Id;
         var updateScript = Path.Combine(Path.GetTempPath(), $"update_logic_arrows_{Guid.NewGuid():N}.cmd");
 
+        // Схема устойчива к антивирусу и второй копии лаунчера:
+        // 1) ждём выхода текущего процесса (до 15 сек);
+        // 2) ПЕРЕИМЕНОВЫВАЕМ текущий exe в .old — rename разрешён даже для запущенного файла;
+        // 3) кладём новый exe на место с ограниченными ретраями (антивирус может держать файл);
+        // 4) при неудаче откатываем .old обратно и пишем журнал — при старте покажем сообщение.
         var scriptContent = $@"@echo off
 chcp 65001 >nul
 timeout /t 1 /nobreak >nul
+set /a waits=0
 :waitloop
 tasklist /fi ""PID eq {pid}"" 2>nul | find ""{pid}"" >nul
-if not errorlevel 1 (
-    timeout /t 1 /nobreak >nul
-    goto waitloop
-)
-:retrymove
+if errorlevel 1 goto doreplace
+set /a waits+=1
+if %waits% geq 15 goto doreplace
+timeout /t 1 /nobreak >nul
+goto waitloop
+:doreplace
+if exist ""{backupPath}"" del /f /q ""{backupPath}"" 2>nul
+ren ""{currentExe}"" ""{backupName}"" 2>nul
+set /a tries=0
+:moveloop
+if exist ""{currentExe}"" goto replaced
 move /y ""{tempExePath}"" ""{currentExe}"" >nul 2>&1
-if errorlevel 1 (
-    timeout /t 1 /nobreak >nul
-    goto retrymove
-)
+if exist ""{currentExe}"" goto replaced
+set /a tries+=1
+if %tries% geq 20 goto failed
+timeout /t 1 /nobreak >nul
+goto moveloop
+:replaced
+if exist ""{backupPath}"" del /f /q ""{backupPath}"" 2>nul
+start """" ""{currentExe}""
+del ""%~f0""
+exit
+:failed
+if not exist ""{currentExe}"" if exist ""{backupPath}"" ren ""{backupPath}"" ""{currentName}"" 2>nul
+echo %date% %time% > ""{FailedUpdateLogPath}""
 start """" ""{currentExe}""
 del ""%~f0""
 ";

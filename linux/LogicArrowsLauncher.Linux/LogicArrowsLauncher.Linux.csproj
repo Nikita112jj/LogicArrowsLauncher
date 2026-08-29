@@ -6,9 +6,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>LogicArrowsLauncher</AssemblyName>
-    <Version>1.4.8</Version>
-    <VersionPrefix>1.4.8</VersionPrefix>
-    <AssemblyInformationalVersion>1.4.8</AssemblyInformationalVersion>
+    <Version>1.4.9</Version>
+    <VersionPrefix>1.4.9</VersionPrefix>
+    <AssemblyInformationalVersion>1.4.9</AssemblyInformationalVersion>
     <RootNamespace>LogicArrowsLauncher.Linux</RootNamespace>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">linux-x64</RuntimeIdentifier>

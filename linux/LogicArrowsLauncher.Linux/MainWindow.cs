@@ -279,7 +279,7 @@ public sealed class MainWindow : Window
 
         var versionText = new TextBlock
         {
-            Text = "v1.4.8 (Linux-порт)",
+            Text = "v1.4.9 (Linux-порт)",
             FontSize = 11.5,
             Foreground = new SolidColorBrush(LaTheme.TextSecondary),
             VerticalAlignment = VerticalAlignment.Center,
@@ -644,6 +644,7 @@ public sealed class MainWindow : Window
         if (!engine.IsReady) return;
         var payload = JsonSerializer.Serialize(new
         {
+            version = LauncherUpdater.CurrentVersion.ToString(),
             builtInActive = extensions?.IsBuiltInActive ?? true,
             entries = extensions?.Entries ?? Array.Empty<ExtensionEntry>(),
         });
