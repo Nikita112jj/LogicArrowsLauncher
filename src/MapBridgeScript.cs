@@ -2978,6 +2978,14 @@ public static class MapBridgeScript
       });
     }
 
+    // Общий хук нативных вкладок вынесен в hookNativeSideBarTabs() и работает ВСЕГДА
+    // (см. syncUi): при активном стороннем расширении встроенные функции выключены,
+    // но переключение вкладок обязано работать.
+  }
+
+  /// <summary>Хук нативных вкладок: убирает наши страницы из menu-page-content и
+  /// возвращает нативные, если они были скрыты нашими вкладками.</summary>
+  function hookNativeSideBarTabs(sideBar) {
     sideBar.querySelectorAll('.side-menu-element').forEach(el => {
       // Исключаем ОБЕ наши вкладки: иначе общий хук (навешивается на каждом проходе)
       // срабатывает после activateExtensions и тут же прячет страницу расширений.
@@ -2987,6 +2995,9 @@ public static class MapBridgeScript
           const previewBtn = document.getElementById(PREVIEW_SIDEBAR_ID);
           const wasPreviewSelected = previewBtn?.classList.contains('side-menu-element-selected');
           previewBtn?.classList.remove('side-menu-element-selected');
+          const extBtn = document.getElementById(EXTENSIONS_SIDEBAR_ID);
+          const wasExtensionsSelected = extBtn?.classList.contains('side-menu-element-selected');
+          extBtn?.classList.remove('side-menu-element-selected');
 
           const previewWrap = document.getElementById('logic-preview-page-container');
           if (previewWrap) previewWrap.style.display = 'none';
@@ -3003,7 +3014,7 @@ public static class MapBridgeScript
             });
           }
 
-          if (wasPreviewSelected) {
+          if (wasPreviewSelected || wasExtensionsSelected) {
             const titleText = el.querySelector('.side-menu-title')?.textContent || '';
             let route = 'maps';
             if (titleText.includes('Уровни') || titleText.includes('Levels')) route = 'levels';
@@ -3264,6 +3275,10 @@ public static class MapBridgeScript
       patchMenuPageSideBar();
     }
     patchExtensionsSideBar();
+    // Переключение нативных вкладок должно работать и при выключенном встроенном
+    // расширении (когда активен сторонний мод) — хук всегда в ядре.
+    const sideBarForHooks = document.getElementById('menu-page-side-bar');
+    if (sideBarForHooks) hookNativeSideBarTabs(sideBarForHooks);
     tryPendingLobbyImport();
   }
 
