@@ -4,6 +4,20 @@ Avalonia + CEF-порт Windows-лаунчера (WinForms + WebView2). Цель
 тот же интерфейс, тот же локальный снапшот игры, тот же мост (вкладка «Превью и Схемы»,
 импорт/экспорт карт, оптимизатор).
 
+## Готовая сборка
+
+В [релизе v1.4.5](https://github.com/Nikita112jj/LogicArrowsLauncher/releases/tag/v1.4.5) лежит
+экспериментальный тарбол **LogicArrowsLauncher-v1.4.5-linux-x64.tar.gz** (422 МБ): внутри
+самодостаточный .NET runtime, runtime CEF и `run.sh`. Запуск:
+
+```bash
+tar -xzf LogicArrowsLauncher-v1.4.5-linux-x64.tar.gz
+cd LogicArrowsLauncher-linux-x64
+bash run.sh   # нужны libgtk-3, libnss3, libx11-xcb, libxkbcommon, libgbm, libasound2
+```
+
+Сборка ни разу не запускалась на живом Linux — о проблемах сообщайте в Issues.
+
 ## Статус (честно)
 
 **Готово (компилируется, публикуется):**
