@@ -1551,24 +1551,27 @@ public static class MapBridgeScript
         document.title = `${staged.name} | Logic Arrows`;
         const nameInput = document.querySelector('.ui-menu-map-name-input');
         if (nameInput) nameInput.value = staged.name;
-        // имя в локальный mapCache (иначе после перезапуска — «New map»)
-        try {
-          if (namespace?.ArrowsDB && gamePage.mapInfo.id) {
-            const cached = await namespace.ArrowsDB.read('mapCache', gamePage.mapInfo.id);
-            const version = ((cached && cached.version) || 0) + 1;
-            if (cached) await namespace.ArrowsDB.write('mapCache', { ...cached, name: staged.name, version });
-            else await namespace.ArrowsDB.write('mapCache', { ...gamePage.mapInfo, name: staged.name, version });
-          }
-        } catch { }
-        const saveInfo = () => {
-          try { namespace.Backend?.saveMapInfo?.(gamePage.mapInfo, () => {}); } catch { }
-          try { namespace.Routes?.saveMapInfo?.(gamePage.mapInfo, () => {}); } catch { }
-          try { gamePage.saveMap?.(gamePage.mapInfo); } catch { }
-        };
-        saveInfo();
-        // повторная запись после оседания игры (сохранение карты из редактора)
-        setTimeout(() => { try { saveInfo(); } catch { } }, 800);
-        setTimeout(() => { try { saveInfo(); } catch { } }, 2000);
+        // имя в локальный mapCache (иначе после перезапуска — «New map»);
+        // tryPendingLobbyImport синхронная, поэтому await — только внутри async IIFE
+        void (async () => {
+          try {
+            if (namespace?.ArrowsDB && gamePage.mapInfo.id) {
+              const cached = await namespace.ArrowsDB.read('mapCache', gamePage.mapInfo.id);
+              const version = ((cached && cached.version) || 0) + 1;
+              if (cached) await namespace.ArrowsDB.write('mapCache', { ...cached, name: staged.name, version });
+              else await namespace.ArrowsDB.write('mapCache', { ...gamePage.mapInfo, name: staged.name, version });
+            }
+          } catch { }
+          const saveInfo = () => {
+            try { namespace.Backend?.saveMapInfo?.(gamePage.mapInfo, () => {}); } catch { }
+            try { namespace.Routes?.saveMapInfo?.(gamePage.mapInfo, () => {}); } catch { }
+            try { gamePage.saveMap?.(gamePage.mapInfo); } catch { }
+          };
+          saveInfo();
+          // повторная запись после оседания игры (сохранение карты из редактора)
+          setTimeout(() => { try { saveInfo(); } catch { } }, 800);
+          setTimeout(() => { try { saveInfo(); } catch { } }, 2000);
+        })();
       }
       pendingLobbyImport = null;
       post({ type: 'map-imported', imported: result.imported, name: staged.name });
