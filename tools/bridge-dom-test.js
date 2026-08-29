@@ -188,8 +188,8 @@ check('вкладка «Расширения» в самом низу сайдб
 // 2. Иконка вкладки расширений видима (currentColor, не белая)
 const extBtn = byId('side-menu-extensions-btn');
 const iconEl = extBtn.children.find((c) => c.className === 'side-menu-icon');
-check('иконка вкладки использует currentColor', String(iconEl?._innerHTML).includes('stroke="currentColor"'));
-check('иконка имеет явный светлый цвет (видна на синем сайдбаре без темы)', iconEl?.style?.color === '#e8edf7');
+check('иконка вкладки — img с data-URI (как нативные вкладки игры)', iconEl?.tagName === 'IMG' && String(iconEl?.src || '').startsWith('data:image/svg+xml'));
+check('у img-иконки зашит явный светлый цвет (%23e8edf7)', String(iconEl?.src || '').includes('%23e8edf7'));
 
 // 3. Общий хук НЕ навешен на наши вкладки (регресс v1.4.7): у кнопки только свой обработчик
 const extClickListeners = (extBtn.listeners.click || []).length;

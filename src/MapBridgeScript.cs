@@ -1914,6 +1914,18 @@ public static class MapBridgeScript
 
   // --- Extensions (вкладка «Расширения» внизу сайдбара) ---
   const EXTENSIONS_SIDEBAR_ID = 'side-menu-extensions-btn';
+  // Иконка — <img> с data-URI (как нативные вкладки: img со спрайтом), цвет зашит в картинку,
+  // поэтому не зависит от темы/наследования и видна при любом активном расширении.
+  const EXT_ICON_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='32' height='32' stroke='%23e8edf7' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z'/%3E%3Cpath d='M12 22V12'/%3E%3Cpolyline points='3.29 7 12 12 20.71 7'/%3E%3Cpath d='m7.5 4.27 9 5.15'/%3E";
+
+  function makeExtensionIcon() {
+    const icon = document.createElement('img');
+    icon.className = 'side-menu-icon';
+    icon.src = EXT_ICON_SRC;
+    icon.alt = '';
+    icon.ondragstart = () => false;
+    return icon;
+  }
 
   function decodeBase64Map(base64) {
     if (!base64 || typeof base64 !== 'string') throw new Error('Пустая строка');
@@ -3135,21 +3147,11 @@ public static class MapBridgeScript
       extBtn.setAttribute('tabindex', '0');
       extBtn.style.cursor = 'pointer';
 
-      const icon = document.createElement('div');
-      icon.className = 'side-menu-icon';
-      icon.style.display = 'flex';
-      icon.style.alignItems = 'center';
-      icon.style.justifyContent = 'center';
-      // Явный светлый цвет: фон сайдбара всегда синий (#3556a3), а унаследованный
-      // color при выключенном встроенном расширении тёмный — иконка исчезает.
-      icon.style.color = '#e8edf7';
-      icon.innerHTML = `<svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto;pointer-events:none;"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path><path d="M12 22V12"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><path d="m7.5 4.27 9 5.15"></path></svg>`;
-
       const title = document.createElement('div');
       title.className = 'side-menu-title';
       title.textContent = 'Расширения';
 
-      extBtn.append(icon, title);
+      extBtn.append(makeExtensionIcon(), title);
       // пользователь просил: вкладка в самом низу списка
       sideBar.appendChild(extBtn);
 
@@ -3186,6 +3188,37 @@ public static class MapBridgeScript
       extBtn.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateExtensions(); }
       });
+    } else {
+      // Самовосстановление: сторонний код мог удалить иконку/заголовок нашей вкладки.
+      const btn = document.getElementById(EXTENSIONS_SIDEBAR_ID);
+      const icon = btn.querySelector('.side-menu-icon');
+      if (!icon || icon.tagName !== 'IMG' || icon.getAttribute('src') !== EXT_ICON_SRC) {
+        if (icon) icon.remove();
+        btn.prepend(makeExtensionIcon());
+      }
+      if (!btn.querySelector('.side-menu-title')) {
+        const title = document.createElement('div');
+        title.className = 'side-menu-title';
+        title.textContent = 'Расширения';
+        btn.appendChild(title);
+      }
+    }
+
+    // Наблюдатель: фиксируем в диагностике, если кто-то удаляет нашу иконку.
+    if (!globalThis.__laExtIconWatch) {
+      globalThis.__laExtIconWatch = true;
+      try {
+        const watchSideBar = document.getElementById('menu-page-side-bar');
+        if (watchSideBar) {
+          new MutationObserver(() => {
+            const watchBtn = document.getElementById(EXTENSIONS_SIDEBAR_ID);
+            const watchIcon = watchBtn && watchBtn.querySelector('.side-menu-icon');
+            if (!watchBtn || !watchIcon || watchIcon.tagName !== 'IMG') {
+              globalThis.__laExtIconNote = 'иконка/кнопка удалена внешним кодом в ' + new Date().toLocaleTimeString();
+            }
+          }).observe(watchSideBar, { subtree: true, childList: true });
+        }
+      } catch { }
     }
 
     if (!globalThis.__laExtensionsStateHooked) {
