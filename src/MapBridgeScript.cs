@@ -2965,7 +2965,9 @@ public static class MapBridgeScript
     }
 
     sideBar.querySelectorAll('.side-menu-element').forEach(el => {
-      if (el.id !== PREVIEW_SIDEBAR_ID && !el.dataset.previewHooked) {
+      // Исключаем ОБЕ наши вкладки: иначе общий хук (навешивается на каждом проходе)
+      // срабатывает после activateExtensions и тут же прячет страницу расширений.
+      if (el.id !== PREVIEW_SIDEBAR_ID && el.id !== EXTENSIONS_SIDEBAR_ID && !el.dataset.previewHooked) {
         el.dataset.previewHooked = '1';
         el.addEventListener('click', () => {
           const previewBtn = document.getElementById(PREVIEW_SIDEBAR_ID);

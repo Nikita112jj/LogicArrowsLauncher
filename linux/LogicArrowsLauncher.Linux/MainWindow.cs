@@ -279,7 +279,7 @@ public sealed class MainWindow : Window
 
         var versionText = new TextBlock
         {
-            Text = "v1.4.6 (Linux-порт)",
+            Text = "v1.4.7 (Linux-порт)",
             FontSize = 11.5,
             Foreground = new SolidColorBrush(LaTheme.TextSecondary),
             VerticalAlignment = VerticalAlignment.Center,

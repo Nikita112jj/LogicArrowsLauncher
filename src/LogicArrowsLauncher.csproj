@@ -7,9 +7,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>LogicArrowsLauncher</AssemblyName>
-    <Version>1.4.6</Version>
-    <VersionPrefix>1.4.6</VersionPrefix>
-    <AssemblyInformationalVersion>1.4.6</AssemblyInformationalVersion>
+    <Version>1.4.7</Version>
+    <VersionPrefix>1.4.7</VersionPrefix>
+    <AssemblyInformationalVersion>1.4.7</AssemblyInformationalVersion>
     <RootNamespace>LogicArrowsLauncher</RootNamespace>
     <UseAppHost>true</UseAppHost>
     <PublishTrimmed>false</PublishTrimmed>
