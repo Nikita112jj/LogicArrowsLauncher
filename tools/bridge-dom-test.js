@@ -21,7 +21,7 @@ function makeElement(tag = 'div') {
     children: [],
     listeners: {},
     dataset: {},
-    style: new Proxy({}, { get: () => '', set: () => true }),
+    style: new Proxy({}, { get: (t, k) => (k in t ? t[k] : ''), set: (t, k, v) => { t[k] = v; return true; } }),
     classList: { _set: new Set(), add(c) { this._set.add(c); }, remove(c) { this._set.delete(c); }, contains(c) { return this._set.has(c); }, toggle(c) { this._set.has(c) ? this._set.delete(c) : this._set.add(c); } },
     className: '',
     _id: '',
@@ -188,7 +188,8 @@ check('вкладка «Расширения» в самом низу сайдб
 // 2. Иконка вкладки расширений видима (currentColor, не белая)
 const extBtn = byId('side-menu-extensions-btn');
 const iconEl = extBtn.children.find((c) => c.className === 'side-menu-icon');
-check('иконка вкладки использует currentColor (видна на любой теме)', String(iconEl?._innerHTML).includes('stroke="currentColor"'));
+check('иконка вкладки использует currentColor', String(iconEl?._innerHTML).includes('stroke="currentColor"'));
+check('иконка имеет явный светлый цвет (видна на синем сайдбаре без темы)', iconEl?.style?.color === '#e8edf7');
 
 // 3. Общий хук НЕ навешен на наши вкладки (регресс v1.4.7): у кнопки только свой обработчик
 const extClickListeners = (extBtn.listeners.click || []).length;
@@ -234,5 +235,5 @@ const before = mapsTab.listeners.click.length;
 mapsTab.click();
 check('клик по нативной вкладке обрабатывается общим хуком', before >= 1);
 
-console.log(`\nИТОГ: ${pass} из 18`);
-process.exit(pass === 18 ? 0 : 1);
+console.log(`\nИТОГ: ${pass} из 19`);
+process.exit(pass === 19 ? 0 : 1);
