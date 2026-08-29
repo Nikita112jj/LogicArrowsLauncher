@@ -14,7 +14,7 @@ public sealed class LauncherForm : Form
     private const int WM_SETFOCUS = 0x0007;
     private const int WM_ACTIVATEAPP = 0x001C;
     private const string RepositoryUrl = "https://github.com/Nikita112jj/LogicArrowsLauncher";
-    private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.4.4";
+    private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.4.5";
 
     // Header Controls
     private readonly Panel header = new();
@@ -213,7 +213,7 @@ public sealed class LauncherForm : Form
         cardSubtitle.Font = new Font("Segoe UI", 9.5F);
         cardSubtitle.TextAlign = ContentAlignment.MiddleCenter;
         cardSubtitle.Bounds = new Rectangle(20, 68, 520, 22);
-        cardSubtitle.Text = "Официальный клиент игры";
+        cardSubtitle.Text = "Неофициальный лаунчер игры Logic Arrows";
 
         // Progress Section
         loadingStatus.AutoSize = false;
@@ -262,14 +262,14 @@ public sealed class LauncherForm : Form
 
         // Update notice banner
         updateNoticePanel.Bounds = new Rectangle(50, 304, 460, 48);
-        updateNoticePanel.BackColor = Color.FromArgb(13, 27, 44);
-        updateNoticePanel.BorderColor = Color.FromArgb(31, 111, 235);
+        updateNoticePanel.BackColor = Color.FromArgb(22, 27, 34);
+        updateNoticePanel.BorderColor = Color.FromArgb(48, 54, 61);
         updateNoticePanel.BorderThickness = 1;
         updateNoticePanel.CornerRadius = 8;
         updateNoticePanel.Visible = false;
 
         updateNoticeLabel.AutoSize = false;
-        updateNoticeLabel.ForeColor = Color.FromArgb(88, 166, 255);
+        updateNoticeLabel.ForeColor = Color.FromArgb(201, 209, 217);
         updateNoticeLabel.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
         updateNoticeLabel.TextAlign = ContentAlignment.MiddleLeft;
         updateNoticeLabel.Location = new Point(12, 0);
