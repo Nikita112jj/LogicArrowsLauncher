@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>LogicArrowsLauncher</AssemblyName>
+    <Version>1.4.5</Version>
+    <VersionPrefix>1.4.5</VersionPrefix>
+    <AssemblyInformationalVersion>1.4.5</AssemblyInformationalVersion>
+    <RootNamespace>LogicArrowsLauncher.Linux</RootNamespace>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">linux-x64</RuntimeIdentifier>
+    <SelfContained Condition="'$(SelfContained)' == ''">true</SelfContained>
+    <PublishSingleFile Condition="'$(PublishSingleFile)' == ''">false</PublishSingleFile>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- CEF на Linux не поддерживает многопоточный цикл сообщений: качаем CefDoMessageLoopWork сами -->
+    <DefineConstants>$(DefineConstants);LINUX_PORT</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.2" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.2" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.2" />
+    <PackageReference Include="CefNet" Version="105.3.22248.142" />
+  </ItemGroup>
+
+  <!-- Кроссплатформенная логика — линкуется из src/ без копирования -->
+  <ItemGroup>
+    <Compile Include="..\..\src\AssetSynchronizer.cs" Link="Shared\AssetSynchronizer.cs" />
+    <Compile Include="..\..\src\CacheModels.cs" Link="Shared\CacheModels.cs" />
+    <Compile Include="..\..\src\LauncherUpdater.cs" Link="Shared\LauncherUpdater.cs" />
+    <Compile Include="..\..\src\MapBridgeScript.cs" Link="Shared\MapBridgeScript.cs" />
+    <Compile Include="..\..\src\MapData.cs" Link="Shared\MapData.cs" />
+    <Compile Include="..\..\src\MapFileService.cs" Link="Shared\MapFileService.cs" />
+    <Compile Include="..\..\src\MapOptimizer.cs" Link="Shared\MapOptimizer.cs" />
+    <Compile Include="..\..\src\ResourceCatalog.cs" Link="Shared\ResourceCatalog.cs" />
+    <Compile Include="..\..\src\UpdateStore.cs" Link="Shared\UpdateStore.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+</Project>

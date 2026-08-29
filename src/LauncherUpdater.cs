@@ -89,7 +89,7 @@ public static class LauncherUpdater
             if (!isNewerVersion)
             {
                 // Check if this is a patch on the same or current version
-                var exePath = Application.ExecutablePath;
+                var exePath = Environment.ProcessPath ?? string.Empty;
                 if (File.Exists(exePath))
                 {
                     var localExeWriteTime = File.GetLastWriteTimeUtc(exePath);
@@ -157,6 +157,7 @@ public static class LauncherUpdater
         return tempExePath;
     }
 
+#if !LINUX_PORT
     public static void ApplyUpdateAndRestart(string tempExePath)
     {
         var currentExe = Application.ExecutablePath;
@@ -188,13 +189,19 @@ del ""%~f0""
             FileName = "cmd.exe",
             Arguments = $"/c \"{updateScript}\"",
             CreateNoWindow = true,
-            UseShellExecute = false,
-            WindowStyle = ProcessWindowStyle.Hidden
+            UseShellExecute = false
         };
         Process.Start(psi);
         Application.Exit();
     }
 
+#else
+    public static void ApplyUpdateAndRestart(string tempExePath)
+    {
+        throw new PlatformNotSupportedException("Автообновление на Linux пока не реализовано — скачайте свежий релиз со страницы GitHub Releases.");
+    }
+
+#endif
     public static Version? ParseVersion(string tag)
     {
         var clean = tag.TrimStart('v', 'V').Trim();
