@@ -14,7 +14,7 @@ public sealed class LauncherForm : Form
     private const int WM_SETFOCUS = 0x0007;
     private const int WM_ACTIVATEAPP = 0x001C;
     private const string RepositoryUrl = "https://github.com/Nikita112jj/LogicArrowsLauncher";
-    private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.4.2";
+    private const string ReleaseUrl = RepositoryUrl + "/releases/tag/v1.4.3";
 
     // Header Controls
     private readonly Panel header = new();
@@ -323,6 +323,7 @@ public sealed class LauncherForm : Form
         checkUpdatesLink.ActiveLinkColor = Color.FromArgb(121, 192, 255);
         checkUpdatesLink.VisitedLinkColor = Color.FromArgb(88, 166, 255);
         checkUpdatesLink.Font = new Font("Segoe UI", 8.5F);
+        checkUpdatesLink.LinkBehavior = LinkBehavior.NeverUnderline;
         checkUpdatesLink.Text = "Проверить обновления";
         checkUpdatesLink.LinkClicked += async (_, _) => await ManualCheckUpdatesAsync();
 
