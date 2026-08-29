@@ -188,8 +188,7 @@ check('вкладка «Расширения» в самом низу сайдб
 // 2. Иконка вкладки расширений видима (currentColor, не белая)
 const extBtn = byId('side-menu-extensions-btn');
 const iconEl = extBtn.children.find((c) => c.className === 'side-menu-icon');
-check('иконка вкладки — img с data-URI (как нативные вкладки игры)', iconEl?.tagName === 'IMG' && String(iconEl?.src || '').startsWith('data:image/svg+xml'));
-check('у img-иконки зашит явный светлый цвет (%23e8edf7)', String(iconEl?.src || '').includes('%23e8edf7'));
+check('иконка вкладки — inline SVG с явным stroke', iconEl && iconEl.tagName === 'DIV' && String(iconEl?._innerHTML).includes('stroke="#e8edf7"') && !String(iconEl?._innerHTML).includes('currentColor'));
 
 // 3. Общий хук НЕ навешен на наши вкладки (регресс v1.4.7): у кнопки только свой обработчик
 const extClickListeners = (extBtn.listeners.click || []).length;
@@ -235,5 +234,5 @@ const before = mapsTab.listeners.click.length;
 mapsTab.click();
 check('клик по нативной вкладке обрабатывается общим хуком', before >= 1);
 
-console.log(`\nИТОГ: ${pass} из 19`);
-process.exit(pass === 19 ? 0 : 1);
+console.log(`\nИТОГ: ${pass} из 18`);
+process.exit(pass === 18 ? 0 : 1);
